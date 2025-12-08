@@ -1,10 +1,14 @@
-node_modules
-src
-prisma
-.env
-.kiro
-.vscode
-*.md
-jest.config.js
-tsconfig.json
-verify-setup.js
+# Legacy backend files (not used)
+/src
+/prisma
+/node_modules
+/.env
+/.kiro
+/.vscode
+/*.md
+/jest.config.js
+/tsconfig.json
+/verify-setup.js
+
+# Keep client directory for build
+!/client
