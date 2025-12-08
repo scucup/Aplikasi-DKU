@@ -1,0 +1,10 @@
+node_modules
+src
+prisma
+.env
+.kiro
+.vscode
+*.md
+jest.config.js
+tsconfig.json
+verify-setup.js
