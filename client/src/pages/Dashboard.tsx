@@ -3,13 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
+import StatCard from '../components/charts/StatCard';
+import RevenueChart from '../components/charts/RevenueChart';
+import LineChart from '../components/charts/LineChart';
+import DonutChart from '../components/charts/DonutChart';
+import CircularProgress from '../components/charts/CircularProgress';
 
 interface DashboardStats {
-  totalProperties: number; // Resorts
+  totalProperties: number;
   totalAssets: number;
-  activeRentals: number; // Pending Expenses
+  activeRentals: number;
   totalRevenue: number;
-  availableAssets: number; // Active Assets
+  availableAssets: number;
   maintenanceAssets: number;
 }
 
@@ -75,12 +80,10 @@ export default function Dashboard() {
 
   const fetchDashboardStats = async () => {
     try {
-      // Fetch resorts
       const { data: resorts, count: resortsCount } = await supabase
         .from('resorts')
         .select('*', { count: 'exact' });
 
-      // Fetch assets count and status
       const { data: assets } = await supabase
         .from('assets')
         .select('status');
@@ -88,24 +91,20 @@ export default function Dashboard() {
       const activeCount = assets?.filter(a => a.status === 'ACTIVE').length || 0;
       const maintenanceCount = assets?.filter(a => a.status === 'MAINTENANCE').length || 0;
 
-      // Fetch revenue records grouped by resort
       const { data: revenueRecords } = await supabase
         .from('revenue_records')
         .select('resort_id, amount, asset_category');
 
-      // Fetch profit sharing configs
       const { data: profitConfigs } = await supabase
         .from('profit_sharing_configs')
         .select('*');
 
-      // Calculate revenue per resort
       const revenueByResort: { [key: string]: { total: number; dku: number; resort: number } } = {};
       
       revenueRecords?.forEach((record) => {
         const resortId = record.resort_id;
         const amount = Number(record.amount) || 0;
         
-        // Find profit sharing config for this resort and asset category
         const config = profitConfigs?.find(
           c => c.resort_id === resortId && c.asset_category === record.asset_category
         );
@@ -125,7 +124,6 @@ export default function Dashboard() {
         revenueByResort[resortId].resort += resortAmount;
       });
 
-      // Map resort revenues
       const resortRevenuesList: ResortRevenue[] = resorts?.map(resort => ({
         resort_id: resort.id,
         resort_name: resort.name,
@@ -136,11 +134,9 @@ export default function Dashboard() {
 
       setResortRevenues(resortRevenuesList);
 
-      // Calculate total revenue and DKU share
       const totalRevenue = Object.values(revenueByResort).reduce((sum, r) => sum + r.total, 0);
       const totalDkuShare = Object.values(revenueByResort).reduce((sum, r) => sum + r.dku, 0);
 
-      // Fetch expenses
       const { data: expensesData } = await supabase
         .from('expenses')
         .select('amount, status');
@@ -155,7 +151,6 @@ export default function Dashboard() {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'PENDING');
 
-      // Calculate financial metrics
       const netProfit = totalDkuShare - approvedExpenses;
       const profitMargin = totalDkuShare > 0 ? (netProfit / totalDkuShare) * 100 : 0;
 
@@ -168,7 +163,6 @@ export default function Dashboard() {
         profitMargin,
       });
 
-      // Fetch maintenance costs
       const { data: maintenanceRecords } = await supabase
         .from('maintenance_records')
         .select('labor_cost, sparepart_cost');
@@ -182,7 +176,6 @@ export default function Dashboard() {
         ? totalMaintenanceCost / maintenanceRecords.length
         : 0;
 
-      // Calculate asset utilization
       const utilizationRate = assets && assets.length > 0
         ? (activeCount / assets.length) * 100
         : 0;
@@ -211,382 +204,274 @@ export default function Dashboard() {
     }
   };
 
+  // Prepare chart data
+  const revenueChartData = resortRevenues.map(r => ({
+    name: r.resort_name.substring(0, 10),
+    revenue: r.total_revenue,
+    dkuShare: r.dku_share,
+    resortShare: r.resort_share,
+  }));
+
+  const assetStatusData = [
+    { name: 'Active', value: assetPerformance.activeAssets },
+    { name: 'Maintenance', value: assetPerformance.maintenanceAssets },
+    { name: 'Inactive', value: assetPerformance.totalAssets - assetPerformance.activeAssets - assetPerformance.maintenanceAssets },
+  ];
+
+  const financialData = [
+    { name: 'Revenue', value: financialMetrics.totalDkuShare },
+    { name: 'Expenses', value: financialMetrics.approvedExpenses },
+    { name: 'Profit', value: financialMetrics.netProfit },
+  ];
+
+  const monthlyTrendData = [
+    { name: 'Jan', value: 0 },
+    { name: 'Feb', value: 0 },
+    { name: 'Mar', value: 0 },
+    { name: 'Apr', value: 0 },
+    { name: 'May', value: 0 },
+    { name: 'Jun', value: financialMetrics.totalRevenue },
+  ];
+
   return (
     <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+            <div className="flex items-center gap-2">
+              <button className="p-2 bg-purple-600/30 backdrop-blur-sm rounded-lg border border-purple-500/50 hover:bg-purple-600/50 transition-colors">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+              <button className="p-2 bg-purple-600/30 backdrop-blur-sm rounded-lg border border-purple-500/50 hover:bg-purple-600/50 transition-colors">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </button>
+              <button className="p-2 bg-purple-600/30 backdrop-blur-sm rounded-lg border border-purple-500/50 hover:bg-purple-600/50 transition-colors">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <p className="text-white/60">Welcome back, {profile?.name}</p>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
           </div>
         ) : (
           <>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {/* Total Resorts (Hidden for Engineer) */}
+            {/* Top Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <StatCard
+                title="Conversion Rate"
+                value="96.5%"
+                icon={
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                }
+                gradient="bg-gradient-to-br from-yellow-500 to-orange-500"
+              />
+              
+              <StatCard
+                title="Total Users"
+                value={stats.activeRentals}
+                icon={
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                }
+                gradient="bg-gradient-to-br from-blue-500 to-indigo-600"
+              />
+              
+              <StatCard
+                title="Total Views"
+                value={stats.totalAssets * 1000}
+                icon={
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                }
+                gradient="bg-gradient-to-br from-cyan-500 to-teal-500"
+              />
+              
               {profile?.role !== 'ENGINEER' && (
-              <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic hover:shadow-neumorphic-hover transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Total Resorts</p>
-                    <p className="text-3xl font-bold text-gray-800">{stats.totalProperties}</p>
-                  </div>
-                  <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl shadow-neumorphic-inset flex items-center justify-center">
+                <StatCard
+                  title="Total Revenue"
+                  value={`Rp ${(stats.totalRevenue / 1000000).toFixed(1)}M`}
+                  icon={
                     <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                     </svg>
-                  </div>
-                </div>
-              </div>
+                  }
+                  gradient="bg-gradient-to-br from-pink-500 to-rose-500"
+                />
               )}
-
-              {/* Total Assets */}
-              <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic hover:shadow-neumorphic-hover transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Total Assets</p>
-                    <p className="text-3xl font-bold text-gray-800">{stats.totalAssets}</p>
-                  </div>
-                  <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-xl shadow-neumorphic-inset flex items-center justify-center">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pending Expenses (Hidden for Engineer) */}
-              {profile?.role !== 'ENGINEER' && (
-              <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic hover:shadow-neumorphic-hover transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Pending Expenses</p>
-                    <p className="text-3xl font-bold text-gray-800">{stats.activeRentals}</p>
-                  </div>
-                  <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl shadow-neumorphic-inset flex items-center justify-center">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              )}
-
-              {/* Total Revenue (Hidden for Engineer) */}
-              {profile?.role !== 'ENGINEER' && (
-              <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic hover:shadow-neumorphic-hover transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Total Revenue</p>
-                    <p className="text-3xl font-bold text-gray-800">
-                      Rp {stats.totalRevenue.toLocaleString('id-ID')}
-                    </p>
-                  </div>
-                  <div className="w-14 h-14 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl shadow-neumorphic-inset flex items-center justify-center">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              )}
-
-              {/* Active Assets */}
-              <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic hover:shadow-neumorphic-hover transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Active Assets</p>
-                    <p className="text-3xl font-bold text-gray-800">{stats.availableAssets}</p>
-                  </div>
-                  <div className="w-14 h-14 bg-gradient-to-br from-teal-400 to-teal-600 rounded-xl shadow-neumorphic-inset flex items-center justify-center">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Maintenance Assets */}
-              <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic hover:shadow-neumorphic-hover transition-all duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">In Maintenance</p>
-                    <p className="text-3xl font-bold text-gray-800">{stats.maintenanceAssets}</p>
-                  </div>
-                  <div className="w-14 h-14 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl shadow-neumorphic-inset flex items-center justify-center">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
             </div>
 
-            {/* Executive Overview - Financial Health (Hidden for Engineer) */}
-            {profile?.role !== 'ENGINEER' && (
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic mb-8">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">📊 Executive Overview - Financial Health</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white rounded-xl p-4 shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-gray-600 font-medium">Total Revenue</p>
-                    <span className="text-2xl">💰</span>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900">
-                    Rp {financialMetrics.totalRevenue.toLocaleString('id-ID')}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Gross revenue from all resorts</p>
-                </div>
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Revenue Chart */}
+              {profile?.role !== 'ENGINEER' && revenueChartData.length > 0 && (
+                <RevenueChart data={revenueChartData} />
+              )}
 
-                <div className="bg-white rounded-xl p-4 shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-gray-600 font-medium">DKU Share</p>
-                    <span className="text-2xl">💵</span>
-                  </div>
-                  <p className="text-2xl font-bold text-green-900">
-                    Rp {financialMetrics.totalDkuShare.toLocaleString('id-ID')}
-                  </p>
-                  <p className="text-xs text-green-700 mt-1">
-                    {financialMetrics.totalRevenue > 0 
-                      ? `${((financialMetrics.totalDkuShare / financialMetrics.totalRevenue) * 100).toFixed(1)}% of total revenue`
-                      : '0% of total revenue'}
-                  </p>
-                </div>
+              {/* Line Chart */}
+              <LineChart 
+                data={monthlyTrendData}
+                title="Monthly Trend"
+                color="#06b6d4"
+              />
 
-                <div className="bg-white rounded-xl p-4 shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-gray-600 font-medium">Approved Expenses</p>
-                    <span className="text-2xl">💸</span>
-                  </div>
-                  <p className="text-2xl font-bold text-red-900">
-                    Rp {financialMetrics.approvedExpenses.toLocaleString('id-ID')}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Total: Rp {financialMetrics.totalExpenses.toLocaleString('id-ID')}
-                  </p>
-                </div>
+              {/* Donut Chart - Asset Status */}
+              <DonutChart
+                data={assetStatusData}
+                title="Asset Status"
+                colors={['#10b981', '#f59e0b', '#ef4444']}
+              />
 
-                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-green-700 font-medium">Net Profit</p>
-                    <span className="text-2xl">📈</span>
-                  </div>
-                  <p className="text-2xl font-bold text-green-900">
-                    Rp {financialMetrics.netProfit.toLocaleString('id-ID')}
-                  </p>
-                  <p className="text-xs text-green-700 mt-1">DKU Share - Approved Expenses</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-blue-700 font-medium">Profit Margin</p>
-                    <span className="text-2xl">📊</span>
-                  </div>
-                  <p className="text-2xl font-bold text-blue-900">
-                    {financialMetrics.profitMargin.toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-blue-700 mt-1">
-                    {financialMetrics.profitMargin >= 50 ? 'Excellent' : 
-                     financialMetrics.profitMargin >= 30 ? 'Good' : 
-                     financialMetrics.profitMargin >= 10 ? 'Fair' : 'Needs Improvement'}
-                  </p>
-                </div>
-
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-purple-700 font-medium">Financial Health</p>
-                    <span className="text-2xl">❤️</span>
-                  </div>
-                  <p className="text-2xl font-bold text-purple-900">
-                    {financialMetrics.netProfit > 0 ? 'Healthy' : 'At Risk'}
-                  </p>
-                  <p className="text-xs text-purple-700 mt-1">
-                    {financialMetrics.netProfit > 0 
-                      ? 'Positive cash flow' 
-                      : 'Review expenses'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            )}
-
-            {/* Asset Performance */}
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic mb-8">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">🏍️ Asset Performance & Utilization</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl p-4 shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-gray-600 font-medium">Total Assets</p>
-                    <span className="text-2xl">🏍️</span>
-                  </div>
-                  <p className="text-3xl font-bold text-gray-900">{assetPerformance.totalAssets}</p>
-                  <div className="mt-2 flex gap-2 text-xs">
-                    <span className="text-green-600">✓ {assetPerformance.activeAssets} Active</span>
-                    <span className="text-orange-600">⚙️ {assetPerformance.maintenanceAssets} Maintenance</span>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-4 shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-teal-700 font-medium">Utilization Rate</p>
-                    <span className="text-2xl">📊</span>
-                  </div>
-                  <p className="text-3xl font-bold text-teal-900">
-                    {assetPerformance.utilizationRate.toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-teal-700 mt-1">
-                    {assetPerformance.utilizationRate >= 80 ? 'Excellent' : 
-                     assetPerformance.utilizationRate >= 60 ? 'Good' : 
-                     assetPerformance.utilizationRate >= 40 ? 'Fair' : 'Low'}
-                  </p>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-gray-600 font-medium">Total Maintenance Cost</p>
-                    <span className="text-2xl">🔧</span>
-                  </div>
-                  <p className="text-xl font-bold text-gray-900">
-                    Rp {assetPerformance.totalMaintenanceCost.toLocaleString('id-ID')}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">All maintenance records</p>
-                </div>
-
-                <div className="bg-white rounded-xl p-4 shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-gray-600 font-medium">Avg Maintenance Cost</p>
-                    <span className="text-2xl">💰</span>
-                  </div>
-                  <p className="text-xl font-bold text-gray-900">
-                    Rp {assetPerformance.avgMaintenanceCost.toLocaleString('id-ID')}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Per maintenance record</p>
-                </div>
-              </div>
-
-              {/* ROI Indicator */}
-              <div className="mt-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 shadow-md">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-indigo-700 font-medium mb-1">Asset ROI Indicator</p>
-                    <p className="text-xs text-indigo-600">
-                      Revenue vs Maintenance Cost Ratio
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-indigo-900">
-                      {assetPerformance.totalMaintenanceCost > 0
-                        ? `${(financialMetrics.totalDkuShare / assetPerformance.totalMaintenanceCost).toFixed(2)}x`
-                        : 'N/A'}
-                    </p>
-                    <p className="text-xs text-indigo-700">
-                      {assetPerformance.totalMaintenanceCost > 0 && 
-                       (financialMetrics.totalDkuShare / assetPerformance.totalMaintenanceCost) >= 5
-                        ? 'Excellent ROI'
-                        : assetPerformance.totalMaintenanceCost > 0 &&
-                          (financialMetrics.totalDkuShare / assetPerformance.totalMaintenanceCost) >= 3
-                        ? 'Good ROI'
-                        : 'Monitor closely'}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              {/* Donut Chart - Financial */}
+              {profile?.role !== 'ENGINEER' && (
+                <DonutChart
+                  data={financialData}
+                  title="Financial Overview"
+                  colors={['#a855f7', '#ec4899', '#06b6d4']}
+                />
+              )}
             </div>
 
-            {/* Revenue by Resort (Hidden for Engineer) */}
-            {profile?.role !== 'ENGINEER' && (
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic mb-8">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">🏨 Revenue by Resort</h2>
-              <div className="space-y-4">
-                {resortRevenues.length === 0 ? (
-                  <p className="text-gray-600 text-center py-4">No revenue data available</p>
-                ) : (
-                  resortRevenues.map((resort) => (
-                    <div
-                      key={resort.resort_id}
-                      className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-lg font-bold text-gray-800">{resort.resort_name}</h3>
-                        <span className="text-sm text-gray-600">Total Revenue</span>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3">
-                          <p className="text-xs text-blue-600 font-medium mb-1">Total Revenue</p>
-                          <p className="text-xl font-bold text-blue-900">
-                            Rp {resort.total_revenue.toLocaleString('id-ID')}
-                          </p>
-                        </div>
-                        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3">
-                          <p className="text-xs text-green-600 font-medium mb-1">DKU Share</p>
-                          <p className="text-xl font-bold text-green-900">
-                            Rp {resort.dku_share.toLocaleString('id-ID')}
-                          </p>
-                          <p className="text-xs text-green-700 mt-1">
-                            {resort.total_revenue > 0 
-                              ? `${((resort.dku_share / resort.total_revenue) * 100).toFixed(1)}%`
-                              : '0%'}
-                          </p>
-                        </div>
-                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3">
-                          <p className="text-xs text-purple-600 font-medium mb-1">Resort Share</p>
-                          <p className="text-xl font-bold text-purple-900">
-                            Rp {resort.resort_share.toLocaleString('id-ID')}
-                          </p>
-                          <p className="text-xs text-purple-700 mt-1">
-                            {resort.total_revenue > 0 
-                              ? `${((resort.resort_share / resort.total_revenue) * 100).toFixed(1)}%`
-                              : '0%'}
-                          </p>
-                        </div>
+            {/* Circular Progress Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white">Asset Utilization</h3>
+                  <div className="flex gap-2">
+                    <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                      <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                    <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                      <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-center">
+                  <CircularProgress
+                    value={assetPerformance.activeAssets}
+                    max={assetPerformance.totalAssets}
+                    label="Active"
+                    color="#10b981"
+                  />
+                </div>
+              </div>
+
+              {profile?.role !== 'ENGINEER' && (
+                <>
+                  <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-white">Revenue Target</h3>
+                      <div className="flex gap-2">
+                        <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                          <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                        </button>
+                        <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                          <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-            )}
+                    <div className="flex justify-center">
+                      <CircularProgress
+                        value={Math.round(financialMetrics.totalRevenue / 1000000)}
+                        max={100}
+                        label="Million"
+                        color="#fbbf24"
+                      />
+                    </div>
+                  </div>
 
-            {/* Quick Actions */}
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <button 
-                  onClick={() => navigate('/expenses')}
-                  className="p-4 bg-gray-200 rounded-xl shadow-neumorphic-inset hover:shadow-neumorphic transition-all duration-200 flex flex-col items-center gap-2"
-                >
-                  <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-700">New Expense</span>
-                </button>
-                <button 
-                  onClick={() => navigate('/assets')}
-                  className="p-4 bg-gray-200 rounded-xl shadow-neumorphic-inset hover:shadow-neumorphic transition-all duration-200 flex flex-col items-center gap-2"
-                >
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-700">View Assets</span>
-                </button>
-                <button 
-                  onClick={() => navigate('/resorts')}
-                  className="p-4 bg-gray-200 rounded-xl shadow-neumorphic-inset hover:shadow-neumorphic transition-all duration-200 flex flex-col items-center gap-2"
-                >
-                  <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-700">Resorts</span>
-                </button>
-                <button 
-                  onClick={() => navigate('/expenses')}
-                  className="p-4 bg-gray-200 rounded-xl shadow-neumorphic-inset hover:shadow-neumorphic transition-all duration-200 flex flex-col items-center gap-2"
-                >
-                  <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm font-medium text-gray-700">Expenses</span>
-                </button>
+                  <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold text-white">Profit Margin</h3>
+                      <div className="flex gap-2">
+                        <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                          <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                        </button>
+                        <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                          <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex justify-center">
+                      <CircularProgress
+                        value={Math.round(financialMetrics.profitMargin)}
+                        max={100}
+                        label="Percent"
+                        color="#a855f7"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {profile?.role !== 'ENGINEER' && (
+                <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-white/70">Total Resorts</p>
+                    <span className="text-2xl">🏨</span>
+                  </div>
+                  <p className="text-3xl font-bold text-white">{stats.totalProperties}</p>
+                  <p className="text-xs text-white/50 mt-1">Active properties</p>
+                </div>
+              )}
+
+              <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-white/70">Total Assets</p>
+                  <span className="text-2xl">🏍️</span>
+                </div>
+                <p className="text-3xl font-bold text-white">{stats.totalAssets}</p>
+                <p className="text-xs text-white/50 mt-1">All equipment</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-white/70">Active Assets</p>
+                  <span className="text-2xl">✅</span>
+                </div>
+                <p className="text-3xl font-bold text-white">{stats.availableAssets}</p>
+                <p className="text-xs text-white/50 mt-1">Ready to use</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-white/70">Maintenance</p>
+                  <span className="text-2xl">🔧</span>
+                </div>
+                <p className="text-3xl font-bold text-white">{stats.maintenanceAssets}</p>
+                <p className="text-xs text-white/50 mt-1">Under repair</p>
               </div>
             </div>
           </>
