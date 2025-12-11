@@ -1,5 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -8,6 +10,7 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const { profile, signOut } = useAuth();
   const location = useLocation();
+  const [pendingExpensesCount, setPendingExpensesCount] = useState(0);
 
   const getNavigation = () => {
     const baseNav = [{ name: 'Dashboard', path: '/dashboard', icon: '📊' }];
@@ -19,6 +22,7 @@ export default function Layout({ children }: LayoutProps) {
         { name: 'Resorts', path: '/resorts', icon: '🏨' },
         { name: 'Assets', path: '/assets', icon: '🏍️' },
         { name: 'Revenue', path: '/revenue', icon: '💵' },
+        { name: 'Invoices', path: '/invoices', icon: '📄' },
         { name: 'Expenses', path: '/expenses', icon: '💰' },
         { name: 'Maintenance', path: '/maintenance', icon: '🔧' },
         { name: 'Spareparts', path: '/spareparts', icon: '⚙️' },
@@ -26,11 +30,12 @@ export default function Layout({ children }: LayoutProps) {
       ];
     }
     
-    // ADMIN sees revenue and expenses
+    // ADMIN sees revenue, invoices and expenses
     if (profile?.role === 'ADMIN') {
       return [
         ...baseNav,
         { name: 'Revenue', path: '/revenue', icon: '💵' },
+        { name: 'Invoices', path: '/invoices', icon: '📄' },
         { name: 'Expenses', path: '/expenses', icon: '💰' },
       ];
     }
@@ -53,6 +58,45 @@ export default function Layout({ children }: LayoutProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
+  useEffect(() => {
+    if (profile?.role === 'MANAGER') {
+      fetchPendingExpenses();
+      
+      // Subscribe to changes in expenses table
+      const channel = supabase
+        .channel('expenses-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'expenses',
+          },
+          () => {
+            fetchPendingExpenses();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [profile?.role]);
+
+  const fetchPendingExpenses = async () => {
+    try {
+      const { count } = await supabase
+        .from('expenses')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'PENDING');
+      
+      setPendingExpensesCount(count || 0);
+    } catch (error) {
+      console.error('Error fetching pending expenses:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-200 to-gray-300">
       {/* Header */}
@@ -66,7 +110,7 @@ export default function Layout({ children }: LayoutProps) {
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`px-4 py-2 rounded-xl transition-all ${
+                    className={`px-4 py-2 rounded-xl transition-all relative ${
                       isActive(item.path)
                         ? 'bg-gray-200 shadow-neumorphic-inset text-gray-900 font-medium'
                         : 'text-gray-600 hover:text-gray-900'
@@ -74,6 +118,11 @@ export default function Layout({ children }: LayoutProps) {
                   >
                     <span className="mr-2">{item.icon}</span>
                     {item.name}
+                    {item.path === '/expenses' && profile?.role === 'MANAGER' && pendingExpensesCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {pendingExpensesCount}
+                      </span>
+                    )}
                   </Link>
                 ))}
               </nav>
@@ -101,7 +150,7 @@ export default function Layout({ children }: LayoutProps) {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center px-3 py-2 rounded-xl transition-all ${
+              className={`flex flex-col items-center px-3 py-2 rounded-xl transition-all relative ${
                 isActive(item.path)
                   ? 'bg-gray-200 shadow-neumorphic-inset text-gray-900'
                   : 'text-gray-600'
@@ -109,6 +158,11 @@ export default function Layout({ children }: LayoutProps) {
             >
               <span className="text-xl">{item.icon}</span>
               <span className="text-xs mt-1">{item.name}</span>
+              {item.path === '/expenses' && profile?.role === 'MANAGER' && pendingExpensesCount > 0 && (
+                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {pendingExpensesCount}
+                </span>
+              )}
             </Link>
           ))}
         </div>

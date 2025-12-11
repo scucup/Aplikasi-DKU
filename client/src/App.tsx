@@ -9,6 +9,7 @@ import Maintenance from './pages/Maintenance';
 import Revenue from './pages/Revenue';
 import Spareparts from './pages/Spareparts';
 import Notifications from './pages/Notifications';
+import Invoices from './pages/Invoices';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -77,6 +78,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Notifications />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/invoices"
+        element={
+          <ProtectedRoute>
+            <Invoices />
           </ProtectedRoute>
         }
       />

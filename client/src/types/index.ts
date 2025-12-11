@@ -29,6 +29,8 @@ export interface Resort {
   contactName?: string;
   contactEmail?: string;
   contactPhone?: string;
+  companyName?: string;
+  address?: string;
   createdAt: string;
   updatedAt: string;
 }
