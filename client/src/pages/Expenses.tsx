@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 
-type ExpenseCategory = 'OPERATIONAL' | 'PERSONNEL' | 'MARKETING' | 'SPAREPART' | 'SALARY' | 'BUSINESS_TRAVEL' | 'SERVICE' | 'OTHER';
+type ExpenseCategory = 'OPERATIONAL' | 'PERSONNEL' | 'MARKETING' | 'SPAREPART' | 'SALARY' | 'BUSINESS_TRAVEL' | 'SERVICE' | 'OTHER' | 'TOOLS';
 type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 interface Expense {
@@ -12,6 +12,7 @@ interface Expense {
   description: string;
   amount: number;
   date: string;
+  resort_id?: string | null;
   status: ApprovalStatus;
   submitted_by: string;
   approved_by?: string;
@@ -20,6 +21,7 @@ interface Expense {
   purchase_order_id?: string | null;
   submitter?: { name: string };
   approver?: { name: string };
+  resort?: { name: string };
 }
 
 interface PurchaseOrder {
@@ -31,16 +33,25 @@ interface PurchaseOrder {
   status: string;
 }
 
+interface Resort {
+  id: string;
+  name: string;
+}
+
 export default function Expenses() {
   const { user, profile } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [resorts, setResorts] = useState<Resort[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [approvalComments, setApprovalComments] = useState('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | ApprovalStatus>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   
   const canCreate = profile?.role === 'ADMIN' || profile?.role === 'MANAGER';
   const canApprove = profile?.role === 'MANAGER';
@@ -50,15 +61,31 @@ export default function Expenses() {
     description: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
+    resort_id: '',
     purchase_order_id: '',
   });
 
   useEffect(() => {
     fetchExpenses();
+    fetchResorts();
     if (canCreate) {
       fetchPurchaseOrders();
     }
   }, [canCreate]);
+
+  const fetchResorts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('resorts')
+        .select('id, name')
+        .order('name');
+      
+      if (error) throw error;
+      setResorts(data || []);
+    } catch (error) {
+      console.error('Error fetching resorts:', error);
+    }
+  };
 
   const fetchExpenses = async () => {
     try {
@@ -77,14 +104,23 @@ export default function Expenses() {
 
       if (usersError) throw usersError;
 
-      // Create a map of user IDs to names
-      const userMap = new Map(usersData?.map(u => [u.id, u.name]) || []);
+      // Fetch all resorts to map names
+      const { data: resortsData, error: resortsError } = await supabase
+        .from('resorts')
+        .select('id, name');
 
-      // Transform expenses with user names
+      if (resortsError) throw resortsError;
+
+      // Create maps
+      const userMap = new Map(usersData?.map(u => [u.id, u.name]) || []);
+      const resortMap = new Map(resortsData?.map(r => [r.id, r.name]) || []);
+
+      // Transform expenses with user and resort names
       const transformedData = expensesData?.map((expense: any) => ({
         ...expense,
         submitter: { name: userMap.get(expense.submitted_by) || 'Unknown' },
         approver: expense.approved_by ? { name: userMap.get(expense.approved_by) || 'Unknown' } : null,
+        resort: expense.resort_id ? { name: resortMap.get(expense.resort_id) || 'Unknown' } : null,
       }));
 
       setExpenses(transformedData || []);
@@ -183,6 +219,7 @@ export default function Expenses() {
           description: formData.description,
           amount: parseFloat(formData.amount),
           date: formData.date,
+          resort_id: formData.resort_id || null,
           submitted_by: user?.id,
           status: 'PENDING',
           purchase_order_id: formData.purchase_order_id || null,
@@ -217,6 +254,7 @@ export default function Expenses() {
         description: '',
         amount: '',
         date: new Date().toISOString().split('T')[0],
+        resort_id: '',
         purchase_order_id: '',
       });
       fetchExpenses();
@@ -244,6 +282,8 @@ export default function Expenses() {
         return 'bg-blue-500';
       case 'SPAREPART':
         return 'bg-teal-500';
+      case 'TOOLS':
+        return 'bg-amber-500';
       case 'SERVICE':
         return 'bg-indigo-500';
       case 'SALARY':
@@ -479,29 +519,68 @@ export default function Expenses() {
           </div>
         )}
 
-        {/* Filter Section */}
-        {canApprove && (
-          <div className="mb-6 bg-purple-900/20 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20">
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-white/90">Filter by Status:</span>
-              <div className="flex gap-2">
-                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setFilterStatus(status)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      filterStatus === status
-                        ? 'bg-purple-600 text-white shadow-md'
-                        : 'bg-purple-800/30 text-white/70 hover:bg-purple-800/50'
-                    }`}
-                  >
-                    {status}
-                  </button>
-                ))}
+        {/* Search and Filter Section */}
+        <div className="mb-6 space-y-4">
+          {/* Search and Date Filter */}
+          <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="relative md:col-span-1">
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search by description, category, or resort..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <input
+                  type="date"
+                  placeholder="Start Date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <input
+                  type="date"
+                  placeholder="End Date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
               </div>
             </div>
           </div>
-        )}
+
+          {/* Filter Section */}
+          {canApprove && (
+            <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-white/90">Filter by Status:</span>
+                <div className="flex gap-2">
+                  {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setFilterStatus(status)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        filterStatus === status
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'bg-purple-800/30 text-white/70 hover:bg-purple-800/50'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {!canCreate && (
           <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
@@ -524,6 +603,7 @@ export default function Expenses() {
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">Date</th>
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">Description</th>
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">Category</th>
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Resort</th>
                     <th className="text-right py-3 px-4 text-white/90 font-semibold">Amount</th>
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">Submitted By</th>
                     <th className="text-center py-3 px-4 text-white/90 font-semibold">Status</th>
@@ -532,7 +612,32 @@ export default function Expenses() {
                 </thead>
                 <tbody>
                   {expenses
-                    .filter((expense) => filterStatus === 'ALL' || expense.status === filterStatus)
+                    .filter((expense) => {
+                      const matchesStatus = filterStatus === 'ALL' || expense.status === filterStatus;
+                      const description = expense.description || '';
+                      const category = expense.category || '';
+                      const resortName = expense.resort?.name || '';
+                      const submitterName = expense.submitter?.name || '';
+                      const search = searchTerm.toLowerCase();
+                      const matchesSearch = description.toLowerCase().includes(search) ||
+                                          category.toLowerCase().includes(search) ||
+                                          resortName.toLowerCase().includes(search) ||
+                                          submitterName.toLowerCase().includes(search);
+                      
+                      // Date filtering
+                      let matchesDate = true;
+                      if (startDate || endDate) {
+                        const expenseDate = new Date(expense.date);
+                        if (startDate) {
+                          matchesDate = matchesDate && expenseDate >= new Date(startDate);
+                        }
+                        if (endDate) {
+                          matchesDate = matchesDate && expenseDate <= new Date(endDate);
+                        }
+                      }
+                      
+                      return matchesStatus && matchesSearch && matchesDate;
+                    })
                     .map((expense) => (
                     <tr key={expense.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
                       <td className="py-3 px-4 text-white">
@@ -552,6 +657,9 @@ export default function Expenses() {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(expense.category)}`}>
                           {expense.category}
                         </span>
+                      </td>
+                      <td className="py-3 px-4 text-white/70">
+                        {expense.resort?.name || '-'}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <span className="text-white font-bold">
@@ -583,10 +691,34 @@ export default function Expenses() {
                       )}
                     </tr>
                   ))}
-                  {expenses.filter((expense) => filterStatus === 'ALL' || expense.status === filterStatus).length === 0 && (
+                  {expenses.filter((expense) => {
+                    const matchesStatus = filterStatus === 'ALL' || expense.status === filterStatus;
+                    const description = expense.description || '';
+                    const category = expense.category || '';
+                    const resortName = expense.resort?.name || '';
+                    const submitterName = expense.submitter?.name || '';
+                    const search = searchTerm.toLowerCase();
+                    const matchesSearch = description.toLowerCase().includes(search) ||
+                                        category.toLowerCase().includes(search) ||
+                                        resortName.toLowerCase().includes(search) ||
+                                        submitterName.toLowerCase().includes(search);
+                    
+                    let matchesDate = true;
+                    if (startDate || endDate) {
+                      const expenseDate = new Date(expense.date);
+                      if (startDate) {
+                        matchesDate = matchesDate && expenseDate >= new Date(startDate);
+                      }
+                      if (endDate) {
+                        matchesDate = matchesDate && expenseDate <= new Date(endDate);
+                      }
+                    }
+                    
+                    return matchesStatus && matchesSearch && matchesDate;
+                  }).length === 0 && (
                     <tr>
-                      <td colSpan={canApprove ? 7 : 6} className="py-8 text-center text-white/50">
-                        No expenses available
+                      <td colSpan={canApprove ? 8 : 7} className="py-8 text-center text-white/50">
+                        {searchTerm || startDate || endDate ? 'No expenses match your filters' : 'No expenses available'}
                       </td>
                     </tr>
                   )}
@@ -598,30 +730,30 @@ export default function Expenses() {
 
         {/* Add Expense Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Add New Expense</h2>
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30 max-h-[90vh] overflow-y-auto">
+              <h2 className="text-2xl font-bold text-white mb-6">Add New Expense</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Purchase Order Selection */}
                 {purchaseOrders.length > 0 && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-white mb-2">
                       Link to Purchase Order (Optional)
                     </label>
                     <select
                       value={formData.purchase_order_id}
                       onChange={(e) => handlePOSelection(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                     >
-                      <option value="">-- Select Purchase Order or Create Manual --</option>
+                      <option value="" className="bg-slate-800 text-white">-- Select Purchase Order or Create Manual --</option>
                       {purchaseOrders.map((po) => (
-                        <option key={po.id} value={po.id}>
+                        <option key={po.id} value={po.id} className="bg-slate-800 text-white">
                           {po.po_number} - {po.supplier_name} - Rp {po.total_amount.toLocaleString('id-ID')}
                         </option>
                       ))}
                     </select>
                     {formData.purchase_order_id && (
-                      <p className="text-xs text-green-600 mt-1">
+                      <p className="text-xs text-green-300 mt-1">
                         ✓ Expense will be linked to this Purchase Order
                       </p>
                     )}
@@ -629,7 +761,7 @@ export default function Expenses() {
                 )}
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Category *
                   </label>
                   <select
@@ -639,27 +771,50 @@ export default function Expenses() {
                       setFormData({ ...formData, category: e.target.value as ExpenseCategory })
                     }
                     disabled={!!formData.purchase_order_id}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      formData.purchase_order_id ? 'bg-gray-100 cursor-not-allowed' : ''
+                    className={`w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 ${
+                      formData.purchase_order_id ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
-                    <option value="OPERATIONAL">Operational</option>
-                    <option value="SPAREPART">Spare Part</option>
-                    <option value="SERVICE">Service</option>
-                    <option value="SALARY">Salary</option>
-                    <option value="PERSONNEL">Personnel</option>
-                    <option value="BUSINESS_TRAVEL">Business Travel</option>
-                    <option value="MARKETING">Marketing</option>
-                    <option value="OTHER">Other</option>
+                    <option value="OPERATIONAL" className="bg-slate-800 text-white">Operational</option>
+                    <option value="SPAREPART" className="bg-slate-800 text-white">Spare Part</option>
+                    <option value="TOOLS" className="bg-slate-800 text-white">Tools</option>
+                    <option value="SERVICE" className="bg-slate-800 text-white">Service</option>
+                    <option value="SALARY" className="bg-slate-800 text-white">Salary</option>
+                    <option value="PERSONNEL" className="bg-slate-800 text-white">Personnel</option>
+                    <option value="BUSINESS_TRAVEL" className="bg-slate-800 text-white">Business Travel</option>
+                    <option value="MARKETING" className="bg-slate-800 text-white">Marketing</option>
+                    <option value="OTHER" className="bg-slate-800 text-white">Other</option>
                   </select>
                   {formData.purchase_order_id && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-white/70 mt-1">
                       Category is auto-selected based on Purchase Order items
                     </p>
                   )}
                 </div>
+                
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Resort
+                  </label>
+                  <select
+                    value={formData.resort_id}
+                    onChange={(e) => setFormData({ ...formData, resort_id: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
+                  >
+                    <option value="" className="bg-slate-800 text-white">-- General / Not Resort Specific --</option>
+                    {resorts.map((resort) => (
+                      <option key={resort.id} value={resort.id} className="bg-slate-800 text-white">
+                        {resort.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-white/70 mt-1">
+                    Select resort if this expense is specific to a location
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
                     Description *
                   </label>
                   <textarea
@@ -667,40 +822,42 @@ export default function Expenses() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                    placeholder="Enter expense description"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                  <label className="block text-sm font-medium text-white mb-2">Amount *</label>
                   <input
                     type="number"
                     required
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                    placeholder="Enter amount"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                  <label className="block text-sm font-medium text-white mb-2">Date *</label>
                   <input
                     type="date"
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   />
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors font-semibold"
                   >
                     Submit
                   </button>

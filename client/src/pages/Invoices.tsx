@@ -66,6 +66,9 @@ export default function Invoices() {
   const [showBankModal, setShowBankModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   
   const canCreate = profile?.role === 'ADMIN' || profile?.role === 'MANAGER';
   const canDelete = profile?.role === 'MANAGER';
@@ -566,6 +569,40 @@ export default function Invoices() {
           </div>
         ) : (
           <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
+            {/* Search and Date Filter */}
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="relative md:col-span-1">
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search by invoice number or resort..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <input
+                  type="date"
+                  placeholder="Start Date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <input
+                  type="date"
+                  placeholder="End Date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -580,7 +617,31 @@ export default function Invoices() {
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map((invoice) => (
+                  {invoices
+                    .filter((invoice) => {
+                      const invoiceNumber = invoice.invoice_number || '';
+                      const resortName = invoice.resort?.name || '';
+                      const status = invoice.status || '';
+                      const search = searchTerm.toLowerCase();
+                      const matchesSearch = invoiceNumber.toLowerCase().includes(search) ||
+                                          resortName.toLowerCase().includes(search) ||
+                                          status.toLowerCase().includes(search);
+                      
+                      // Date filtering
+                      let matchesDate = true;
+                      if (startDate || endDate) {
+                        const invoiceDate = new Date(invoice.start_date);
+                        if (startDate) {
+                          matchesDate = matchesDate && invoiceDate >= new Date(startDate);
+                        }
+                        if (endDate) {
+                          matchesDate = matchesDate && invoiceDate <= new Date(endDate);
+                        }
+                      }
+                      
+                      return matchesSearch && matchesDate;
+                    })
+                    .map((invoice) => (
                     <tr key={invoice.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
                       <td className="py-3 px-4 text-white font-medium">{invoice.invoice_number}</td>
                       <td className="py-3 px-4 text-white/70">{invoice.resort?.name || '-'}</td>
@@ -654,10 +715,31 @@ export default function Invoices() {
                       </td>
                     </tr>
                   ))}
-                  {invoices.length === 0 && (
+                  {invoices.filter((invoice) => {
+                    const invoiceNumber = invoice.invoice_number || '';
+                    const resortName = invoice.resort?.name || '';
+                    const status = invoice.status || '';
+                    const search = searchTerm.toLowerCase();
+                    const matchesSearch = invoiceNumber.toLowerCase().includes(search) ||
+                                        resortName.toLowerCase().includes(search) ||
+                                        status.toLowerCase().includes(search);
+                    
+                    let matchesDate = true;
+                    if (startDate || endDate) {
+                      const invoiceDate = new Date(invoice.start_date);
+                      if (startDate) {
+                        matchesDate = matchesDate && invoiceDate >= new Date(startDate);
+                      }
+                      if (endDate) {
+                        matchesDate = matchesDate && invoiceDate <= new Date(endDate);
+                      }
+                    }
+                    
+                    return matchesSearch && matchesDate;
+                  }).length === 0 && (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-white/50">
-                        No invoices available
+                        {searchTerm || startDate || endDate ? 'No invoices match your filters' : 'No invoices available'}
                       </td>
                     </tr>
                   )}

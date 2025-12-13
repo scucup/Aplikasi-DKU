@@ -8,7 +8,7 @@ export type AssetStatus = 'ACTIVE' | 'MAINTENANCE' | 'RETIRED';
 
 export type MaintenanceType = 'PREVENTIVE' | 'CORRECTIVE';
 
-export type ExpenseCategory = 'OPERATIONAL' | 'PERSONNEL' | 'MARKETING';
+export type ExpenseCategory = 'OPERATIONAL' | 'PERSONNEL' | 'MARKETING' | 'SPAREPART' | 'SALARY' | 'BUSINESS_TRAVEL' | 'OTHER' | 'SERVICE' | 'TOOLS';
 
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -90,6 +90,7 @@ export interface Expense {
   description: string;
   amount: number;
   date: string;
+  resort_id?: string;
   submittedBy: string;
   status: ApprovalStatus;
   approvedBy?: string;
@@ -175,4 +176,53 @@ export interface DashboardSummary {
   averageROI: number;
   pendingApprovalsCount: number;
   pendingInvoicesCount: number;
+}
+
+// Tool Management Types
+export type ToolCondition = 'good' | 'fair' | 'poor' | 'damaged' | 'lost';
+export type ToolCategory = 'Hand Tools' | 'Power Tools' | 'Diagnostic Equipment' | 'Safety Equipment' | 'Measuring Tools' | 'Other';
+export type ToolMaintenanceType = 'repair' | 'calibration' | 'cleaning' | 'inspection';
+
+export interface Tool {
+  id: string;
+  name: string;
+  category: ToolCategory;
+  brand?: string;
+  model?: string;
+  serial_number?: string;
+  resort_id: string;
+  condition: ToolCondition;
+  purchase_date: string;
+  purchase_price: number;
+  supplier?: string;
+  warranty_until?: string;
+  last_maintenance_date?: string;
+  notes?: string;
+  image_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ToolMaintenanceHistory {
+  id: string;
+  tool_id: string;
+  maintenance_date: string;
+  maintenance_type: ToolMaintenanceType;
+  description?: string;
+  cost?: number;
+  performed_by?: string;
+  created_at: string;
+}
+
+export interface ToolUsageLog {
+  id: string;
+  tool_id: string;
+  user_id?: string;
+  borrowed_at: string;
+  returned_at?: string;
+  purpose?: string;
+  condition_before?: ToolCondition;
+  condition_after?: ToolCondition;
+  notes?: string;
+  created_at: string;
 }

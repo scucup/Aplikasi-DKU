@@ -54,6 +54,9 @@ export default function Maintenance() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetDetail | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [formData, setFormData] = useState({
     asset_id: '',
     type: 'PREVENTIVE' as MaintenanceType,
@@ -285,6 +288,40 @@ export default function Maintenance() {
           </div>
         ) : (
           <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
+            {/* Search and Date Filter */}
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="relative md:col-span-1">
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search by asset name or description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <input
+                  type="date"
+                  placeholder="Start Date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <input
+                  type="date"
+                  placeholder="End Date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -299,7 +336,29 @@ export default function Maintenance() {
                   </tr>
                 </thead>
                 <tbody>
-                  {records.map((record) => (
+                  {records
+                    .filter((record) => {
+                      const assetName = (record as any).asset?.name || '';
+                      const description = record.description || '';
+                      const search = searchTerm.toLowerCase();
+                      const matchesSearch = assetName.toLowerCase().includes(search) || 
+                                          description.toLowerCase().includes(search);
+                      
+                      // Date filtering
+                      let matchesDate = true;
+                      if (startDate || endDate) {
+                        const recordDate = new Date(record.start_date);
+                        if (startDate) {
+                          matchesDate = matchesDate && recordDate >= new Date(startDate);
+                        }
+                        if (endDate) {
+                          matchesDate = matchesDate && recordDate <= new Date(endDate);
+                        }
+                      }
+                      
+                      return matchesSearch && matchesDate;
+                    })
+                    .map((record) => (
                     <tr key={record.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
                       <td className="py-3 px-4">
                         <span
@@ -358,10 +417,29 @@ export default function Maintenance() {
                       </td>
                     </tr>
                   ))}
-                  {records.length === 0 && (
+                  {records.filter((record) => {
+                    const assetName = (record as any).asset?.name || '';
+                    const description = record.description || '';
+                    const search = searchTerm.toLowerCase();
+                    const matchesSearch = assetName.toLowerCase().includes(search) || 
+                                        description.toLowerCase().includes(search);
+                    
+                    let matchesDate = true;
+                    if (startDate || endDate) {
+                      const recordDate = new Date(record.start_date);
+                      if (startDate) {
+                        matchesDate = matchesDate && recordDate >= new Date(startDate);
+                      }
+                      if (endDate) {
+                        matchesDate = matchesDate && recordDate <= new Date(endDate);
+                      }
+                    }
+                    
+                    return matchesSearch && matchesDate;
+                  }).length === 0 && (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-white/50">
-                        No maintenance records available
+                        {searchTerm || startDate || endDate ? 'No maintenance records match your filters' : 'No maintenance records available'}
                       </td>
                     </tr>
                   )}

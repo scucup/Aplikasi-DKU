@@ -13,6 +13,8 @@ import Notifications from './pages/Notifications';
 import Invoices from './pages/Invoices';
 import Settings from './pages/Settings';
 import ResortAnalytics from './pages/ResortAnalytics';
+import Tools from './pages/Tools';
+import ToolDetail from './pages/ToolDetail';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -113,6 +115,22 @@ function App() {
         element={
           <ProtectedRoute>
             <ResortAnalytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tools"
+        element={
+          <ProtectedRoute>
+            <Tools />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tools/:id"
+        element={
+          <ProtectedRoute>
+            <ToolDetail />
           </ProtectedRoute>
         }
       />

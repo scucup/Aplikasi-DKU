@@ -28,6 +28,10 @@ export default function Assets() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedResort, setSelectedResort] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
   const canCreate = profile?.role === 'MANAGER' || profile?.role === 'ENGINEER';
   const [formData, setFormData] = useState({
@@ -286,87 +290,262 @@ export default function Assets() {
           </div>
         )}
 
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+          <div className="bg-gradient-to-br from-purple-900/50 to-purple-800/50 backdrop-blur-md rounded-xl shadow-lg p-6 border border-purple-500/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/70">Total Assets</p>
+                <p className="text-2xl font-bold text-white mt-1">{assets.length}</p>
+              </div>
+              <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-br from-green-900/50 to-green-800/50 backdrop-blur-md rounded-xl shadow-lg p-6 border border-green-500/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/70">Active</p>
+                <p className="text-2xl font-bold text-white mt-1">
+                  {assets.filter(a => a.status === 'ACTIVE').length}
+                </p>
+              </div>
+              <svg className="w-10 h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-br from-yellow-900/50 to-yellow-800/50 backdrop-blur-md rounded-xl shadow-lg p-6 border border-yellow-500/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/70">Maintenance</p>
+                <p className="text-2xl font-bold text-white mt-1">
+                  {assets.filter(a => a.status === 'MAINTENANCE').length}
+                </p>
+              </div>
+              <svg className="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-br from-red-900/50 to-red-800/50 backdrop-blur-md rounded-xl shadow-lg p-6 border border-red-500/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/70">Retired</p>
+                <p className="text-2xl font-bold text-white mt-1">
+                  {assets.filter(a => a.status === 'RETIRED').length}
+                </p>
+              </div>
+              <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-purple-500/20 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search assets..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+            
+            <select
+              value={selectedResort}
+              onChange={(e) => setSelectedResort(e.target.value)}
+              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Resorts</option>
+              {resorts.map(resort => (
+                <option key={resort.id} value={resort.id}>{resort.name}</option>
+              ))}
+            </select>
+            
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Status</option>
+              <option value="ACTIVE">Active</option>
+              <option value="MAINTENANCE">Maintenance</option>
+              <option value="RETIRED">Retired</option>
+            </select>
+            
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Categories</option>
+              <option value="ATV">ATV</option>
+              <option value="UTV">UTV</option>
+              <option value="SEA_SPORT">Sea Sport</option>
+              <option value="POOL_TOYS">Pool Toys</option>
+              <option value="LINE_SPORT">Line Sport</option>
+            </select>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {assets.map((asset) => (
-              <div
-                key={asset.id}
-                onClick={() => navigate(`/assets/${asset.id}`)}
-                className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 hover:border-purple-500/50 transition-all relative cursor-pointer"
-              >
-                {canCreate && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEdit(asset);
-                    }}
-                    className="absolute top-4 right-4 p-2 bg-purple-600 rounded-lg shadow-md hover:shadow-lg transition-all text-white hover:bg-purple-700 z-10"
-                    title="Edit asset"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                    </svg>
-                  </button>
-                )}
-                {/* Photo */}
-                {asset.photo_url && (
-                  <div className="mb-4 rounded-xl overflow-hidden">
-                    <img
-                      src={asset.photo_url}
-                      alt={asset.name}
-                      className="w-full h-48 object-cover"
-                    />
-                  </div>
-                )}
-
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <span className="text-3xl">{getCategoryIcon(asset.category)}</span>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">{asset.name}</h3>
-                      <p className="text-sm text-white/70">{asset.category}</p>
-                      {asset.serial_number && (
-                        <p className="text-xs text-white/50 font-mono mt-1">
-                          SN: {asset.serial_number}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                      asset.status
-                    )}`}
-                  >
-                    {asset.status}
-                  </span>
-                </div>
-                <div className="space-y-2 text-sm text-white/70">
-                  <p>
-                    <span className="font-medium text-white/90">Resort:</span>{' '}
-                    {(asset as any).resorts?.name || '-'}
-                  </p>
-                  <p>
-                    <span className="font-medium text-white/90">Purchase Date:</span>{' '}
-                    {new Date(asset.purchase_date).toLocaleDateString('id-ID')}
-                  </p>
-                  <p>
-                    <span className="font-medium text-white/90">Purchase Cost:</span>{' '}
-                    <span className="text-neon-green font-bold">
-                      Rp {asset.purchase_cost.toLocaleString('id-ID')}
-                    </span>
-                  </p>
-                </div>
+          <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden border border-purple-500/20">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-purple-500/20">
+                <thead className="bg-purple-800/50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                      Asset
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                      Category
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                      Resort
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                      Purchase Price
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                      Purchase Date
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-white/70 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-purple-500/20">
+                  {assets
+                    .filter((asset) => {
+                      const name = asset.name || '';
+                      const serialNumber = asset.serial_number || '';
+                      const category = asset.category || '';
+                      const resortName = (asset as any).resorts?.name || '';
+                      const search = searchTerm.toLowerCase();
+                      const matchesSearch = name.toLowerCase().includes(search) ||
+                                          serialNumber.toLowerCase().includes(search) ||
+                                          category.toLowerCase().includes(search) ||
+                                          resortName.toLowerCase().includes(search);
+                      
+                      const matchesResort = selectedResort === 'all' || asset.resort_id === selectedResort;
+                      const matchesStatus = selectedStatus === 'all' || asset.status === selectedStatus;
+                      const matchesCategory = selectedCategory === 'all' || asset.category === selectedCategory;
+                      
+                      return matchesSearch && matchesResort && matchesStatus && matchesCategory;
+                    })
+                    .map((asset) => (
+                      <tr 
+                        key={asset.id} 
+                        className="hover:bg-purple-800/30 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/assets/${asset.id}`)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            {asset.photo_url && (
+                              <img
+                                src={asset.photo_url}
+                                alt={asset.name}
+                                className="w-12 h-12 object-cover rounded-lg"
+                              />
+                            )}
+                            <div>
+                              <div className="text-sm font-medium text-white hover:text-purple-400">{asset.name}</div>
+                              {asset.serial_number && (
+                                <div className="text-xs text-white/40 font-mono">SN: {asset.serial_number}</div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">{getCategoryIcon(asset.category)}</span>
+                            <span className="text-sm text-white">{asset.category.replace('_', ' ')}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-white">{(asset as any).resorts?.name || '-'}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(asset.status)}`}>
+                            {asset.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-white font-semibold">Rp {asset.purchase_cost.toLocaleString('id-ID')}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-white">{new Date(asset.purchase_date).toLocaleDateString('id-ID')}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          {canCreate && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(asset);
+                              }}
+                              className="text-purple-400 hover:text-purple-300 mr-3"
+                              title="Edit"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {assets.filter((asset) => {
+              const name = asset.name || '';
+              const serialNumber = asset.serial_number || '';
+              const category = asset.category || '';
+              const resortName = (asset as any).resorts?.name || '';
+              const search = searchTerm.toLowerCase();
+              const matchesSearch = name.toLowerCase().includes(search) ||
+                                  serialNumber.toLowerCase().includes(search) ||
+                                  category.toLowerCase().includes(search) ||
+                                  resortName.toLowerCase().includes(search);
+              
+              const matchesResort = selectedResort === 'all' || asset.resort_id === selectedResort;
+              const matchesStatus = selectedStatus === 'all' || asset.status === selectedStatus;
+              const matchesCategory = selectedCategory === 'all' || asset.category === selectedCategory;
+              
+              return matchesSearch && matchesResort && matchesStatus && matchesCategory;
+            }).length === 0 && (
+              <div className="text-center py-12">
+                <svg className="mx-auto h-12 w-12 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-white">No assets found</h3>
+                <p className="mt-1 text-sm text-white/60">
+                  {searchTerm || selectedResort !== 'all' || selectedStatus !== 'all' || selectedCategory !== 'all'
+                    ? 'Try adjusting your filters'
+                    : 'Start by adding your first asset'}
+                </p>
               </div>
-            ))}
+            )}
           </div>
         )}
 
@@ -379,7 +558,7 @@ export default function Assets() {
               </h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Asset Name *
                   </label>
                   <input
@@ -387,11 +566,12 @@ export default function Assets() {
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                    placeholder="Enter asset name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Serial Number
                   </label>
                   <input
@@ -399,14 +579,14 @@ export default function Assets() {
                     value={formData.serial_number}
                     onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
                     placeholder="e.g., montigo-1, atv-001"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-white/70 mt-1">
                     Unique identifier for this asset
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Category *
                   </label>
                   <select
@@ -415,33 +595,33 @@ export default function Assets() {
                     onChange={(e) =>
                       setFormData({ ...formData, category: e.target.value as AssetCategory })
                     }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   >
-                    <option value="ATV">ATV</option>
-                    <option value="UTV">UTV</option>
-                    <option value="SEA_SPORT">Sea Sport</option>
-                    <option value="POOL_TOYS">Pool Toys</option>
-                    <option value="LINE_SPORT">Line Sport</option>
+                    <option value="ATV" className="bg-slate-800 text-white">ATV</option>
+                    <option value="UTV" className="bg-slate-800 text-white">UTV</option>
+                    <option value="SEA_SPORT" className="bg-slate-800 text-white">Sea Sport</option>
+                    <option value="POOL_TOYS" className="bg-slate-800 text-white">Pool Toys</option>
+                    <option value="LINE_SPORT" className="bg-slate-800 text-white">Line Sport</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Resort *</label>
+                  <label className="block text-sm font-medium text-white mb-2">Resort *</label>
                   <select
                     required
                     value={formData.resort_id}
                     onChange={(e) => setFormData({ ...formData, resort_id: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   >
-                    <option value="">Select Resort</option>
+                    <option value="" className="bg-slate-800 text-white">Select Resort</option>
                     {resorts.map((resort) => (
-                      <option key={resort.id} value={resort.id}>
+                      <option key={resort.id} value={resort.id} className="bg-slate-800 text-white">
                         {resort.name}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Purchase Date *
                   </label>
                   <input
@@ -449,11 +629,11 @@ export default function Assets() {
                     required
                     value={formData.purchase_date}
                     onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Purchase Cost *
                   </label>
                   <input
@@ -461,33 +641,34 @@ export default function Assets() {
                     required
                     value={formData.purchase_cost}
                     onChange={(e) => setFormData({ ...formData, purchase_cost: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                    placeholder="Enter purchase cost"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                  <label className="block text-sm font-medium text-white mb-2">Status *</label>
                   <select
                     required
                     value={formData.status}
                     onChange={(e) =>
                       setFormData({ ...formData, status: e.target.value as AssetStatus })
                     }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   >
-                    <option value="ACTIVE">Active</option>
-                    <option value="MAINTENANCE">Maintenance</option>
-                    <option value="RETIRED">Retired</option>
+                    <option value="ACTIVE" className="bg-slate-800 text-white">Active</option>
+                    <option value="MAINTENANCE" className="bg-slate-800 text-white">Maintenance</option>
+                    <option value="RETIRED" className="bg-slate-800 text-white">Retired</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Front View Photo
                   </label>
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/jpg"
                     onChange={(e) => handlePhotoChange(e, 'front')}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 file:cursor-pointer"
                   />
                   {photoPreviews.front && (
                     <div className="mt-2 relative">
@@ -511,14 +692,14 @@ export default function Assets() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Side View Photo
                   </label>
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/jpg"
                     onChange={(e) => handlePhotoChange(e, 'side')}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 file:cursor-pointer"
                   />
                   {photoPreviews.side && (
                     <div className="mt-2 relative">
@@ -542,14 +723,14 @@ export default function Assets() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white mb-2">
                     Top View Photo
                   </label>
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/jpg"
                     onChange={(e) => handlePhotoChange(e, 'top')}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 file:cursor-pointer"
                   />
                   {photoPreviews.top && (
                     <div className="mt-2 relative">
@@ -570,7 +751,7 @@ export default function Assets() {
                       </button>
                     </div>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-white/70 mt-1">
                     Max 5MB per photo. Supported: JPG, PNG, WebP
                   </p>
                 </div>
@@ -583,7 +764,7 @@ export default function Assets() {
                       setPhotoFiles({ front: null, side: null, top: null });
                       setPhotoPreviews({ front: null, side: null, top: null });
                     }}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
                     disabled={uploading}
                   >
                     Cancel
@@ -591,7 +772,7 @@ export default function Assets() {
                   <button
                     type="submit"
                     disabled={uploading}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors font-semibold disabled:opacity-50"
                   >
                     {uploading ? 'Uploading...' : editingId ? 'Update' : 'Create'}
                   </button>

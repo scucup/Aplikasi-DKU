@@ -10,11 +10,13 @@ interface RevenueRecord {
   resort_id: string;
   asset_category: AssetCategory;
   date: string;
+  billing_no: string | null;
   amount: number;
   discount: number;
   discount_percentage: number;
   tax_service: number;
   tax_service_percentage: number;
+  tax_service_type: 'PERCENTAGE' | 'FIXED_AMOUNT';
   recorded_by: string;
   resort?: { name: string };
   dku_percentage?: number;
@@ -28,13 +30,19 @@ export default function Revenue() {
   const [availableCategories, setAvailableCategories] = useState<AssetCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<RevenueRecord | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [formData, setFormData] = useState({
     resort_id: '',
     asset_category: '' as AssetCategory | '',
     date: new Date().toISOString().split('T')[0],
+    billing_no: '',
     amount: '',
     discount_percentage: '',
-    tax_service_percentage: '',
+    tax_service_type: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED_AMOUNT',
+    tax_service_value: '',
   });
 
   const canCreate = profile?.role === 'ADMIN' || profile?.role === 'MANAGER';
@@ -117,6 +125,43 @@ export default function Revenue() {
     }
   };
 
+  const handleEdit = (record: RevenueRecord) => {
+    setEditingRecord(record);
+    const taxServiceType = record.tax_service_type || 'PERCENTAGE';
+    const taxServiceValue = taxServiceType === 'PERCENTAGE' 
+      ? (record.tax_service_percentage?.toString() || '')
+      : (record.tax_service?.toString() || '');
+    
+    setFormData({
+      resort_id: record.resort_id,
+      asset_category: record.asset_category,
+      date: record.date,
+      billing_no: record.billing_no || '',
+      amount: record.amount.toString(),
+      discount_percentage: record.discount_percentage?.toString() || '',
+      tax_service_type: taxServiceType,
+      tax_service_value: taxServiceValue,
+    });
+    fetchAvailableCategories(record.resort_id);
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this revenue record?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('revenue_records')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchRecords();
+    } catch (error: any) {
+      alert('Error deleting revenue record: ' + error.message);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -124,40 +169,90 @@ export default function Revenue() {
       const discountPercentage = formData.discount_percentage ? parseFloat(formData.discount_percentage) : 0;
       const discountAmount = (amount * discountPercentage) / 100;
       const amountAfterDiscount = amount - discountAmount;
-      const taxServicePercentage = formData.tax_service_percentage ? parseFloat(formData.tax_service_percentage) : 0;
-      const taxServiceAmount = (amountAfterDiscount * taxServicePercentage) / 100;
+      
+      // Calculate tax & service based on type
+      let taxServiceAmount = 0;
+      let taxServicePercentage = 0;
+      
+      if (formData.tax_service_value) {
+        const taxServiceValue = parseFloat(formData.tax_service_value);
+        if (formData.tax_service_type === 'PERCENTAGE') {
+          taxServicePercentage = taxServiceValue;
+          taxServiceAmount = (amountAfterDiscount * taxServiceValue) / 100;
+        } else {
+          // FIXED_AMOUNT
+          taxServiceAmount = taxServiceValue;
+          taxServicePercentage = amountAfterDiscount > 0 ? (taxServiceValue / amountAfterDiscount) * 100 : 0;
+        }
+      }
 
-      const { error } = await supabase.from('revenue_records').insert([
-        {
-          id: crypto.randomUUID(),
-          resort_id: formData.resort_id,
-          asset_category: formData.asset_category,
-          date: formData.date,
-          amount: amount,
-          discount_percentage: discountPercentage,
-          discount: discountAmount,
-          tax_service_percentage: taxServicePercentage,
-          tax_service: taxServiceAmount,
-          recorded_by: user?.id,
-        },
-      ]);
+      const recordData = {
+        resort_id: formData.resort_id,
+        asset_category: formData.asset_category,
+        date: formData.date,
+        billing_no: formData.billing_no || null,
+        amount: amount,
+        discount_percentage: discountPercentage,
+        discount: discountAmount,
+        tax_service_type: formData.tax_service_type,
+        tax_service_percentage: taxServicePercentage,
+        tax_service: taxServiceAmount,
+      };
 
-      if (error) throw error;
+      if (editingRecord) {
+        // Update existing record
+        const { error } = await supabase
+          .from('revenue_records')
+          .update(recordData)
+          .eq('id', editingRecord.id);
+
+        if (error) throw error;
+      } else {
+        // Create new record
+        const { error } = await supabase.from('revenue_records').insert([
+          {
+            id: crypto.randomUUID(),
+            ...recordData,
+            recorded_by: user?.id,
+          },
+        ]);
+
+        if (error) throw error;
+      }
 
       setShowModal(false);
+      setEditingRecord(null);
       setFormData({
         resort_id: '',
         asset_category: '',
         date: new Date().toISOString().split('T')[0],
+        billing_no: '',
         amount: '',
         discount_percentage: '',
-        tax_service_percentage: '',
+        tax_service_type: 'PERCENTAGE',
+        tax_service_value: '',
       });
       setAvailableCategories([]);
       fetchRecords();
     } catch (error: any) {
-      alert('Error creating revenue record: ' + error.message);
+      alert(`Error ${editingRecord ? 'updating' : 'creating'} revenue record: ` + error.message);
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingRecord(null);
+    setFormData({
+      resort_id: '',
+      asset_category: '',
+      date: new Date().toISOString().split('T')[0],
+      billing_no: '',
+      amount: '',
+      discount_percentage: '',
+      tax_service_type: 'PERCENTAGE',
+      tax_service_value: '',
+    });
+    setAvailableCategories([]);
   };
 
   const totalRevenue = records.reduce((sum, record) => sum + Number(record.amount), 0);
@@ -202,11 +297,46 @@ export default function Revenue() {
           </div>
         ) : (
           <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
+            {/* Search and Date Filter */}
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="relative md:col-span-1">
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search by resort, category, or billing..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <input
+                  type="date"
+                  placeholder="Start Date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <input
+                  type="date"
+                  placeholder="End Date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-purple-500/20">
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">Date</th>
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Billing No.</th>
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">Resort</th>
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">Category</th>
                     <th className="text-right py-3 px-4 text-white/90 font-semibold">Amount</th>
@@ -214,10 +344,35 @@ export default function Revenue() {
                     <th className="text-right py-3 px-4 text-white/90 font-semibold">Tax & Service</th>
                     <th className="text-right py-3 px-4 text-white/90 font-semibold">Net Amount</th>
                     <th className="text-right py-3 px-4 text-white/90 font-semibold">DKU Share</th>
+                    {canCreate && <th className="text-center py-3 px-4 text-white/90 font-semibold">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {records.map((record) => {
+                  {records
+                    .filter((record) => {
+                      const resortName = (record as any).resort?.name || '';
+                      const category = record.asset_category || '';
+                      const billingNo = record.billing_no || '';
+                      const search = searchTerm.toLowerCase();
+                      const matchesSearch = resortName.toLowerCase().includes(search) ||
+                                          category.toLowerCase().includes(search) ||
+                                          billingNo.toLowerCase().includes(search);
+                      
+                      // Date filtering
+                      let matchesDate = true;
+                      if (startDate || endDate) {
+                        const recordDate = new Date(record.date);
+                        if (startDate) {
+                          matchesDate = matchesDate && recordDate >= new Date(startDate);
+                        }
+                        if (endDate) {
+                          matchesDate = matchesDate && recordDate <= new Date(endDate);
+                        }
+                      }
+                      
+                      return matchesSearch && matchesDate;
+                    })
+                    .map((record) => {
                     const discountPercentage = Number(record.discount_percentage) || 0;
                     const discount = Number(record.discount) || 0;
                     const taxServicePercentage = Number(record.tax_service_percentage) || 0;
@@ -234,6 +389,9 @@ export default function Revenue() {
                             month: 'short',
                             year: 'numeric'
                           })}
+                        </td>
+                        <td className="py-3 px-4 text-white/70">
+                          {record.billing_no || '-'}
                         </td>
                         <td className="py-3 px-4 text-white/70">
                           {(record as any).resort?.name || '-'}
@@ -267,7 +425,9 @@ export default function Revenue() {
                                 - Rp {taxService.toLocaleString('id-ID')}
                               </span>
                               <div className="text-xs text-orange-300/70">
-                                ({taxServicePercentage}%)
+                                {record.tax_service_type === 'PERCENTAGE' 
+                                  ? `(${taxServicePercentage.toFixed(1)}%)`
+                                  : '(Fixed)'}
                               </div>
                             </div>
                           ) : (
@@ -289,13 +449,58 @@ export default function Revenue() {
                             </div>
                           </div>
                         </td>
+                        {canCreate && (
+                          <td className="py-3 px-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => handleEdit(record)}
+                                className="p-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-lg transition-colors"
+                                title="Edit"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDelete(record.id)}
+                                className="p-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
-                  {records.length === 0 && (
+                  {records.filter((record) => {
+                    const resortName = (record as any).resort?.name || '';
+                    const category = record.asset_category || '';
+                    const billingNo = record.billing_no || '';
+                    const search = searchTerm.toLowerCase();
+                    const matchesSearch = resortName.toLowerCase().includes(search) ||
+                                        category.toLowerCase().includes(search) ||
+                                        billingNo.toLowerCase().includes(search);
+                    
+                    let matchesDate = true;
+                    if (startDate || endDate) {
+                      const recordDate = new Date(record.date);
+                      if (startDate) {
+                        matchesDate = matchesDate && recordDate >= new Date(startDate);
+                      }
+                      if (endDate) {
+                        matchesDate = matchesDate && recordDate <= new Date(endDate);
+                      }
+                    }
+                    
+                    return matchesSearch && matchesDate;
+                  }).length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-white/50">
-                        No revenue records available
+                      <td colSpan={canCreate ? 10 : 9} className="py-8 text-center text-white/50">
+                        {searchTerm || startDate || endDate ? 'No revenue records match your filters' : 'No revenue records available'}
                       </td>
                     </tr>
                   )}
@@ -309,7 +514,9 @@ export default function Revenue() {
         {showModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30">
-              <h2 className="text-2xl font-bold text-white mb-6">Add Revenue Record</h2>
+              <h2 className="text-2xl font-bold text-white mb-6">
+                {editingRecord ? 'Edit Revenue Record' : 'Add Revenue Record'}
+              </h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-white/90 mb-1">Resort *</label>
@@ -374,6 +581,18 @@ export default function Revenue() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-white/90 mb-1">
+                    Billing No. <span className="text-white/60 text-xs">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.billing_no}
+                    onChange={(e) => setFormData({ ...formData, billing_no: e.target.value })}
+                    className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter billing number"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-white/90 mb-1">Amount *</label>
                   <input
                     type="number"
@@ -406,23 +625,49 @@ export default function Revenue() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-white/90 mb-1">
-                    Tax & Service % <span className="text-white/60 text-xs">(Optional)</span>
+                    Tax & Service <span className="text-white/60 text-xs">(Optional)</span>
                   </label>
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, tax_service_type: 'PERCENTAGE', tax_service_value: '' })}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        formData.tax_service_type === 'PERCENTAGE'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-purple-800/30 text-white/60 hover:bg-purple-800/50'
+                      }`}
+                    >
+                      Percentage (%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, tax_service_type: 'FIXED_AMOUNT', tax_service_value: '' })}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        formData.tax_service_type === 'FIXED_AMOUNT'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-purple-800/30 text-white/60 hover:bg-purple-800/50'
+                      }`}
+                    >
+                      Fixed Amount (Rp)
+                    </button>
+                  </div>
                   <div className="relative">
                     <input
                       type="number"
                       min="0"
-                      max="100"
-                      step="0.1"
-                      value={formData.tax_service_percentage}
-                      onChange={(e) => setFormData({ ...formData, tax_service_percentage: e.target.value })}
-                      className="w-full px-4 py-2 pr-10 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
-                      placeholder="Enter tax & service percentage"
+                      max={formData.tax_service_type === 'PERCENTAGE' ? '100' : undefined}
+                      step="0.01"
+                      value={formData.tax_service_value}
+                      onChange={(e) => setFormData({ ...formData, tax_service_value: e.target.value })}
+                      className="w-full px-4 py-2 pr-12 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                      placeholder={formData.tax_service_type === 'PERCENTAGE' ? 'Enter percentage' : 'Enter amount'}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60">%</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60">
+                      {formData.tax_service_type === 'PERCENTAGE' ? '%' : 'Rp'}
+                    </span>
                   </div>
                 </div>
-                {formData.amount && (parseFloat(formData.discount_percentage || '0') > 0 || parseFloat(formData.tax_service_percentage || '0') > 0) && (
+                {formData.amount && (parseFloat(formData.discount_percentage || '0') > 0 || parseFloat(formData.tax_service_value || '0') > 0) && (
                   <div className="p-3 bg-purple-800/30 rounded-lg border border-purple-500/20">
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-white/70">Revenue:</span>
@@ -438,15 +683,20 @@ export default function Revenue() {
                         </span>
                       </div>
                     )}
-                    {formData.tax_service_percentage && parseFloat(formData.tax_service_percentage) > 0 && (
+                    {formData.tax_service_value && parseFloat(formData.tax_service_value) > 0 && (
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="text-white/70">Tax & Service ({formData.tax_service_percentage}%):</span>
+                        <span className="text-white/70">
+                          Tax & Service {formData.tax_service_type === 'PERCENTAGE' ? `(${formData.tax_service_value}%)` : ''}:
+                        </span>
                         <span className="text-orange-400 font-medium">
                           - Rp {(() => {
                             const amount = parseFloat(formData.amount);
                             const discountAmount = (amount * parseFloat(formData.discount_percentage || '0')) / 100;
                             const amountAfterDiscount = amount - discountAmount;
-                            const taxService = (amountAfterDiscount * parseFloat(formData.tax_service_percentage)) / 100;
+                            const taxServiceValue = parseFloat(formData.tax_service_value);
+                            const taxService = formData.tax_service_type === 'PERCENTAGE'
+                              ? (amountAfterDiscount * taxServiceValue) / 100
+                              : taxServiceValue;
                             return taxService.toLocaleString('id-ID');
                           })()}
                         </span>
@@ -459,7 +709,10 @@ export default function Revenue() {
                           const amount = parseFloat(formData.amount);
                           const discountAmount = (amount * parseFloat(formData.discount_percentage || '0')) / 100;
                           const amountAfterDiscount = amount - discountAmount;
-                          const taxService = (amountAfterDiscount * parseFloat(formData.tax_service_percentage || '0')) / 100;
+                          const taxServiceValue = parseFloat(formData.tax_service_value || '0');
+                          const taxService = formData.tax_service_type === 'PERCENTAGE'
+                            ? (amountAfterDiscount * taxServiceValue) / 100
+                            : taxServiceValue;
                           return (amountAfterDiscount - taxService).toLocaleString('id-ID');
                         })()}
                       </span>
@@ -469,7 +722,7 @@ export default function Revenue() {
                 <div className="flex gap-3 mt-6">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={handleCloseModal}
                     className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
                   >
                     Cancel
@@ -478,7 +731,7 @@ export default function Revenue() {
                     type="submit"
                     className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors font-semibold"
                   >
-                    Create
+                    {editingRecord ? 'Update' : 'Create'}
                   </button>
                 </div>
               </form>

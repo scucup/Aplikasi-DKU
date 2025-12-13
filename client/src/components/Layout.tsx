@@ -27,6 +27,7 @@ export default function Layout({ children }: LayoutProps) {
         { name: 'Expenses', path: '/expenses', icon: '💰' },
         { name: 'Maintenance', path: '/maintenance', icon: '🔧' },
         { name: 'Spareparts', path: '/spareparts', icon: '⚙️' },
+        { name: 'Tools', path: '/tools', icon: '🔨' },
         { name: 'Notifications', path: '/notifications', icon: '🔔' },
       ];
     }
@@ -42,13 +43,14 @@ export default function Layout({ children }: LayoutProps) {
       ];
     }
     
-    // ENGINEER sees assets, maintenance, spareparts, and notifications
+    // ENGINEER sees assets, maintenance, spareparts, tools, and notifications
     if (profile?.role === 'ENGINEER') {
       return [
         ...baseNav,
         { name: 'Assets', path: '/assets', icon: '🏍️' },
         { name: 'Maintenance', path: '/maintenance', icon: '🔧' },
         { name: 'Spareparts', path: '/spareparts', icon: '⚙️' },
+        { name: 'Tools', path: '/tools', icon: '🔨' },
         { name: 'Notifications', path: '/notifications', icon: '🔔' },
       ];
     }
