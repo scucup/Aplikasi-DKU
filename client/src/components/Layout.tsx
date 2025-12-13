@@ -8,9 +8,10 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const location = useLocation();
   const [pendingExpensesCount, setPendingExpensesCount] = useState(0);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
 
   const getNavigation = () => {
     const baseNav = [{ name: 'Dashboard', path: '/dashboard', icon: '📊' }];
@@ -30,13 +31,14 @@ export default function Layout({ children }: LayoutProps) {
       ];
     }
     
-    // ADMIN sees revenue, invoices and expenses
+    // ADMIN sees revenue, invoices, expenses, and notifications
     if (profile?.role === 'ADMIN') {
       return [
         ...baseNav,
         { name: 'Revenue', path: '/revenue', icon: '💵' },
         { name: 'Invoices', path: '/invoices', icon: '📄' },
         { name: 'Expenses', path: '/expenses', icon: '💰' },
+        { name: 'Notifications', path: '/notifications', icon: '🔔' },
       ];
     }
     
@@ -84,6 +86,33 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [profile?.role]);
 
+  useEffect(() => {
+    if (user?.id) {
+      fetchUnreadNotifications();
+      
+      // Subscribe to changes in notifications table
+      const channel = supabase
+        .channel('notifications-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            fetchUnreadNotifications();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user?.id]);
+
   const fetchPendingExpenses = async () => {
     try {
       const { count } = await supabase
@@ -94,6 +123,20 @@ export default function Layout({ children }: LayoutProps) {
       setPendingExpensesCount(count || 0);
     } catch (error) {
       console.error('Error fetching pending expenses:', error);
+    }
+  };
+
+  const fetchUnreadNotifications = async () => {
+    try {
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user?.id)
+        .eq('status', 'UNREAD');
+      
+      setUnreadNotificationsCount(count || 0);
+    } catch (error) {
+      console.error('Error fetching unread notifications:', error);
     }
   };
 
@@ -123,6 +166,11 @@ export default function Layout({ children }: LayoutProps) {
                         {pendingExpensesCount}
                       </span>
                     )}
+                    {item.path === '/notifications' && unreadNotificationsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-neon-pink text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-neon">
+                        {unreadNotificationsCount}
+                      </span>
+                    )}
                   </Link>
                 ))}
               </nav>
@@ -132,6 +180,14 @@ export default function Layout({ children }: LayoutProps) {
                 <p className="text-sm font-medium text-white">{profile?.name}</p>
                 <p className="text-xs text-white/60">{profile?.role}</p>
               </div>
+              {(profile?.role === 'ADMIN' || profile?.role === 'MANAGER') && (
+                <Link
+                  to="/settings"
+                  className="px-4 py-2 bg-purple-600/30 backdrop-blur-sm text-white rounded-xl border border-purple-500/50 hover:bg-purple-600/50 transition-all duration-200"
+                >
+                  ⚙️ Settings
+                </Link>
+              )}
               <button
                 onClick={signOut}
                 className="px-4 py-2 bg-purple-600/30 backdrop-blur-sm text-white rounded-xl border border-purple-500/50 hover:bg-purple-600/50 transition-all duration-200"

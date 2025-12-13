@@ -1,36 +1,30 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 
-type NotificationStatus = 'PENDING' | 'ACKNOWLEDGED' | 'COMPLETED';
+type NotificationStatus = 'UNREAD' | 'READ' | 'ARCHIVED';
 
 interface Notification {
   id: string;
-  asset_id: string;
-  sparepart_installation_id: string | null;
-  notification_type: string;
-  scheduled_date: string;
+  user_id: string;
   title: string;
   message: string;
-  status: string;
-  priority: string;
-  assigned_to: string | null;
-  completed_at: string | null;
+  notification_type: string;
+  reference_id: string | null;
+  reference_type: string | null;
+  status: NotificationStatus;
   created_at: string;
-  asset?: { name: string; serial_number: string | null };
-  sparepart_installation?: {
-    sparepart: { name: string; type: string; replacement_period: string };
-  };
+  read_at: string | null;
 }
 
 export default function Notifications() {
-  const { profile } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<NotificationStatus | 'ALL'>('PENDING');
-
-  const canManage = profile?.role === 'ENGINEER' || profile?.role === 'MANAGER';
+  const [filter, setFilter] = useState<NotificationStatus | 'ALL'>('UNREAD');
 
   useEffect(() => {
     fetchNotifications();
@@ -39,15 +33,10 @@ export default function Notifications() {
   const fetchNotifications = async () => {
     try {
       let query = supabase
-        .from('maintenance_notifications')
-        .select(`
-          *,
-          asset:assets(name, serial_number),
-          sparepart_installation:sparepart_installations(
-            sparepart:sparepart_master(name, type, replacement_period)
-          )
-        `)
-        .order('scheduled_date', { ascending: true });
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
 
       if (filter !== 'ALL') {
         query = query.eq('status', filter);
@@ -64,11 +53,14 @@ export default function Notifications() {
     }
   };
 
-  const updateStatus = async (id: string, status: NotificationStatus) => {
+  const markAsRead = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('maintenance_notifications')
-        .update({ status })
+        .from('notifications')
+        .update({ 
+          status: 'READ',
+          read_at: new Date().toISOString()
+        })
         .eq('id', id);
 
       if (error) throw error;
@@ -78,37 +70,81 @@ export default function Notifications() {
     }
   };
 
+  const archiveNotification = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ status: 'ARCHIVED' })
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchNotifications();
+    } catch (error: any) {
+      alert('Error archiving notification: ' + error.message);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PENDING':
+      case 'UNREAD':
         return 'bg-yellow-100 text-yellow-800';
-      case 'ACKNOWLEDGED':
+      case 'READ':
         return 'bg-blue-100 text-blue-800';
-      case 'COMPLETED':
-        return 'bg-green-100 text-green-800';
+      case 'ARCHIVED':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const isOverdue = (scheduledDate: string) => {
-    return new Date(scheduledDate) < new Date();
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'PURCHASE_ORDER_CREATED':
+        return '🛒';
+      case 'EXPENSE_APPROVAL_NEEDED':
+        return '💰';
+      case 'MAINTENANCE_DUE':
+        return '🔧';
+      case 'SPAREPART_REPLACEMENT':
+        return '🔩';
+      default:
+        return '📢';
+    }
+  };
+
+  const handleViewReference = (notification: Notification) => {
+    // Mark as read first
+    if (notification.status === 'UNREAD') {
+      markAsRead(notification.id);
+    }
+
+    // Navigate to relevant page
+    if (notification.reference_type === 'PURCHASE_ORDER') {
+      navigate('/spareparts');
+    } else if (notification.reference_type === 'EXPENSE') {
+      navigate('/expenses');
+    }
   };
 
   return (
     <Layout>
       <div className="max-w-7xl mx-auto p-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Maintenance Notifications</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-white">Notifications</h1>
+            <p className="text-white/70 text-sm mt-1">
+              {notifications.filter(n => n.status === 'UNREAD').length} unread notifications
+            </p>
+          </div>
           <div className="flex gap-2">
-            {(['ALL', 'PENDING', 'ACKNOWLEDGED', 'COMPLETED'] as const).map((status) => (
+            {(['ALL', 'UNREAD', 'READ', 'ARCHIVED'] as const).map((status) => (
               <button
                 key={status}
                 onClick={() => setFilter(status)}
                 className={`px-4 py-2 rounded-xl transition-all ${
                   filter === status
-                    ? 'bg-orange-600 text-white shadow-neumorphic'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    ? 'bg-purple-600 text-white shadow-lg'
+                    : 'bg-purple-900/20 text-white/70 hover:bg-purple-900/30'
                 }`}
               >
                 {status}
@@ -117,106 +153,85 @@ export default function Notifications() {
           </div>
         </div>
 
-        {!canManage && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              You don't have permission to manage notifications. Only ENGINEER and MANAGER can update.
-            </p>
-          </div>
-        )}
-
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-orange-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
           </div>
         ) : notifications.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">No notifications found</p>
+          <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-12 border border-purple-500/20 text-center">
+            <p className="text-white/50 text-lg">No notifications found</p>
           </div>
         ) : (
           <div className="space-y-4">
             {notifications.map((notification) => {
-              const overdue = isOverdue(notification.scheduled_date);
+              const isUnread = notification.status === 'UNREAD';
               return (
                 <div
                   key={notification.id}
-                  className={`bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic hover:shadow-neumorphic-hover transition-all ${
-                    overdue && notification.status === 'PENDING' ? 'border-2 border-red-400' : ''
+                  className={`bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border transition-all ${
+                    isUnread 
+                      ? 'border-purple-500/50 shadow-lg shadow-purple-500/20' 
+                      : 'border-purple-500/20'
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start gap-4">
+                    {/* Icon */}
+                    <div className="text-4xl">
+                      {getNotificationIcon(notification.notification_type)}
+                    </div>
+                    
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(notification.status)}`}>
                           {notification.status}
                         </span>
-                        {overdue && notification.status === 'PENDING' && (
-                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            OVERDUE
-                          </span>
-                        )}
+                        <span className="text-xs text-white/50">
+                          {new Date(notification.created_at).toLocaleString('id-ID')}
+                        </span>
                       </div>
-                      <h3 className="text-lg font-bold text-gray-800 mb-2">
+                      
+                      <h3 className={`text-lg font-bold mb-2 ${isUnread ? 'text-white' : 'text-white/70'}`}>
                         {notification.title}
                       </h3>
-                      <p className="text-sm text-gray-600 mb-3">{notification.message}</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                        <div>
-                          <span className="font-medium">Asset:</span>{' '}
-                          {(notification as any).asset?.name || '-'}
-                          {(notification as any).asset?.serial_number && (
-                            <span className="ml-2 font-mono text-xs">
-                              ({(notification as any).asset.serial_number})
-                            </span>
-                          )}
+                      
+                      <p className={`text-sm mb-3 ${isUnread ? 'text-white/90' : 'text-white/60'}`}>
+                        {notification.message}
+                      </p>
+                      
+                      {notification.reference_type && (
+                        <div className="text-xs text-white/50">
+                          Reference: {notification.reference_type}
                         </div>
-                        {notification.sparepart_installation && (
-                          <div>
-                            <span className="font-medium">Sparepart:</span>{' '}
-                            {(notification as any).sparepart_installation?.sparepart?.name || '-'}
-                            <span className="text-xs text-gray-500 ml-1">
-                              ({(notification as any).sparepart_installation?.sparepart?.type})
-                            </span>
-                          </div>
-                        )}
-                        <div>
-                          <span className="font-medium">Scheduled Date:</span>{' '}
-                          <span className={overdue ? 'text-red-600 font-medium' : ''}>
-                            {new Date(notification.scheduled_date).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Priority:</span>{' '}
-                          <span className={`font-medium ${
-                            notification.priority === 'HIGH' ? 'text-red-600' :
-                            notification.priority === 'MEDIUM' ? 'text-yellow-600' :
-                            'text-green-600'
-                          }`}>
-                            {notification.priority}
-                          </span>
-                        </div>
-                      </div>
+                      )}
                     </div>
-                    {canManage && notification.status !== 'COMPLETED' && (
-                      <div className="flex flex-col gap-2 ml-4">
-                        {notification.status === 'PENDING' && (
-                          <button
-                            onClick={() => updateStatus(notification.id, 'ACKNOWLEDGED')}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm whitespace-nowrap"
-                          >
-                            Acknowledge
-                          </button>
-                        )}
-                        {notification.status === 'ACKNOWLEDGED' && (
-                          <button
-                            onClick={() => updateStatus(notification.id, 'COMPLETED')}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm whitespace-nowrap"
-                          >
-                            Complete
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    
+                    {/* Actions */}
+                    <div className="flex flex-col gap-2">
+                      {notification.reference_type && (
+                        <button
+                          onClick={() => handleViewReference(notification)}
+                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm whitespace-nowrap"
+                        >
+                          View
+                        </button>
+                      )}
+                      {isUnread && (
+                        <button
+                          onClick={() => markAsRead(notification.id)}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm whitespace-nowrap"
+                        >
+                          Mark as Read
+                        </button>
+                      )}
+                      {notification.status === 'READ' && (
+                        <button
+                          onClick={() => archiveNotification(notification.id)}
+                          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm whitespace-nowrap"
+                        >
+                          Archive
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

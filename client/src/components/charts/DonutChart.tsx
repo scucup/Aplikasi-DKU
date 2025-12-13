@@ -12,8 +12,8 @@ interface DonutChartProps {
 export default function DonutChart({ data, title, colors }: DonutChartProps) {
   return (
     <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-white">{title}</h3>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-bold text-white">{title}</h3>
         <div className="flex gap-2">
           <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
             <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">

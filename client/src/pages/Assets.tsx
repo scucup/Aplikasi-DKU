@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
@@ -21,6 +22,7 @@ interface Asset {
 
 export default function Assets() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [resorts, setResorts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,8 +39,16 @@ export default function Assets() {
     status: 'ACTIVE' as AssetStatus,
     serial_number: '',
   });
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<{
+    front: File | null;
+    side: File | null;
+    top: File | null;
+  }>({ front: null, side: null, top: null });
+  const [photoPreviews, setPhotoPreviews] = useState<{
+    front: string | null;
+    side: string | null;
+    top: string | null;
+  }>({ front: null, side: null, top: null });
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -67,29 +77,34 @@ export default function Assets() {
     }
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>, photoType: 'front' | 'side' | 'top') => {
     const file = e.target.files?.[0];
     if (file) {
-      setPhotoFile(file);
+      setPhotoFiles(prev => ({ ...prev, [photoType]: file }));
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPhotoPreview(reader.result as string);
+        setPhotoPreviews(prev => ({ ...prev, [photoType]: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const uploadPhoto = async (assetId: string): Promise<string | null> => {
-    if (!photoFile) return null;
+  const handleRemovePhoto = (photoType: 'front' | 'side' | 'top') => {
+    setPhotoFiles(prev => ({ ...prev, [photoType]: null }));
+    setPhotoPreviews(prev => ({ ...prev, [photoType]: null }));
+  };
+
+  const uploadPhoto = async (assetId: string, file: File, photoType: string): Promise<string | null> => {
+    if (!file) return null;
 
     try {
-      const fileExt = photoFile.name.split('.').pop();
-      const fileName = `${assetId}-${Date.now()}.${fileExt}`;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${assetId}-${photoType}-${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('asset-photos')
-        .upload(filePath, photoFile);
+        .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
@@ -101,7 +116,7 @@ export default function Assets() {
     }
   };
 
-  const handleEdit = (asset: Asset) => {
+  const handleEdit = async (asset: Asset) => {
     setEditingId(asset.id);
     setFormData({
       name: asset.name,
@@ -112,7 +127,22 @@ export default function Assets() {
       status: asset.status,
       serial_number: asset.serial_number || '',
     });
-    setPhotoPreview(asset.photo_url);
+    
+    // Fetch full asset data to get all photo URLs
+    const { data } = await supabase
+      .from('assets')
+      .select('photo_url, photo_front_url, photo_side_url, photo_top_url')
+      .eq('id', asset.id)
+      .single();
+    
+    if (data) {
+      setPhotoPreviews({
+        front: data.photo_front_url || data.photo_url || null,
+        side: data.photo_side_url || null,
+        top: data.photo_top_url || null,
+      });
+    }
+    
     setShowModal(true);
   };
 
@@ -123,10 +153,19 @@ export default function Assets() {
     try {
       const assetId = editingId || crypto.randomUUID();
       
-      // Upload photo first if new photo selected
-      let photoUrl = photoPreview; // Keep existing photo URL
-      if (photoFile) {
-        photoUrl = await uploadPhoto(assetId);
+      // Upload photos if new photos selected
+      let photoFrontUrl = photoPreviews.front;
+      let photoSideUrl = photoPreviews.side;
+      let photoTopUrl = photoPreviews.top;
+      
+      if (photoFiles.front) {
+        photoFrontUrl = await uploadPhoto(assetId, photoFiles.front, 'front');
+      }
+      if (photoFiles.side) {
+        photoSideUrl = await uploadPhoto(assetId, photoFiles.side, 'side');
+      }
+      if (photoFiles.top) {
+        photoTopUrl = await uploadPhoto(assetId, photoFiles.top, 'top');
       }
 
       const assetData = {
@@ -137,7 +176,10 @@ export default function Assets() {
         purchase_cost: parseFloat(formData.purchase_cost),
         status: formData.status,
         serial_number: formData.serial_number || null,
-        photo_url: photoUrl,
+        photo_url: photoFrontUrl, // Keep for backward compatibility
+        photo_front_url: photoFrontUrl,
+        photo_side_url: photoSideUrl,
+        photo_top_url: photoTopUrl,
       };
 
       let error;
@@ -172,8 +214,8 @@ export default function Assets() {
         status: 'ACTIVE',
         serial_number: '',
       });
-      setPhotoFile(null);
-      setPhotoPreview(null);
+      setPhotoFiles({ front: null, side: null, top: null });
+      setPhotoPreviews({ front: null, side: null, top: null });
       fetchAssets();
     } catch (error: any) {
       alert(`Error ${editingId ? 'updating' : 'creating'} asset: ` + error.message);
@@ -211,7 +253,7 @@ export default function Assets() {
     <Layout>
       <div className="max-w-7xl mx-auto p-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Assets Management</h1>
+          <h1 className="text-3xl font-bold text-white">Assets Management</h1>
           {canCreate && (
             <button
               onClick={() => {
@@ -225,11 +267,11 @@ export default function Assets() {
                   status: 'ACTIVE',
                   serial_number: '',
                 });
-                setPhotoFile(null);
-                setPhotoPreview(null);
+                setPhotoFiles({ front: null, side: null, top: null });
+                setPhotoPreviews({ front: null, side: null, top: null });
                 setShowModal(true);
               }}
-              className="px-6 py-3 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl shadow-neumorphic hover:shadow-neumorphic-hover transition-all"
+              className="px-6 py-3 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
             >
               + Add Asset
             </button>
@@ -237,8 +279,8 @@ export default function Assets() {
         </div>
 
         {!canCreate && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
+          <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
+            <p className="text-sm text-yellow-200">
               You don't have permission to create assets. Only MANAGER and ENGINEER can create.
             </p>
           </div>
@@ -246,19 +288,23 @@ export default function Assets() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-green-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {assets.map((asset) => (
               <div
                 key={asset.id}
-                className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic hover:shadow-neumorphic-hover transition-all relative"
+                onClick={() => navigate(`/assets/${asset.id}`)}
+                className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 hover:border-purple-500/50 transition-all relative cursor-pointer"
               >
                 {canCreate && (
                   <button
-                    onClick={() => handleEdit(asset)}
-                    className="absolute top-4 right-4 p-2 bg-white rounded-lg shadow-md hover:shadow-lg transition-all text-green-600 hover:text-green-700 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(asset);
+                    }}
+                    className="absolute top-4 right-4 p-2 bg-purple-600 rounded-lg shadow-md hover:shadow-lg transition-all text-white hover:bg-purple-700 z-10"
                     title="Edit asset"
                   >
                     <svg
@@ -286,10 +332,10 @@ export default function Assets() {
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">{getCategoryIcon(asset.category)}</span>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-800">{asset.name}</h3>
-                      <p className="text-sm text-gray-600">{asset.category}</p>
+                      <h3 className="text-lg font-bold text-white">{asset.name}</h3>
+                      <p className="text-sm text-white/70">{asset.category}</p>
                       {asset.serial_number && (
-                        <p className="text-xs text-gray-500 font-mono mt-1">
+                        <p className="text-xs text-white/50 font-mono mt-1">
                           SN: {asset.serial_number}
                         </p>
                       )}
@@ -303,18 +349,20 @@ export default function Assets() {
                     {asset.status}
                   </span>
                 </div>
-                <div className="space-y-2 text-sm text-gray-600">
+                <div className="space-y-2 text-sm text-white/70">
                   <p>
-                    <span className="font-medium">Resort:</span>{' '}
+                    <span className="font-medium text-white/90">Resort:</span>{' '}
                     {(asset as any).resorts?.name || '-'}
                   </p>
                   <p>
-                    <span className="font-medium">Purchase Date:</span>{' '}
-                    {new Date(asset.purchase_date).toLocaleDateString()}
+                    <span className="font-medium text-white/90">Purchase Date:</span>{' '}
+                    {new Date(asset.purchase_date).toLocaleDateString('id-ID')}
                   </p>
                   <p>
-                    <span className="font-medium">Purchase Cost:</span> Rp{' '}
-                    {asset.purchase_cost.toLocaleString('id-ID')}
+                    <span className="font-medium text-white/90">Purchase Cost:</span>{' '}
+                    <span className="text-neon-green font-bold">
+                      Rp {asset.purchase_cost.toLocaleString('id-ID')}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -324,9 +372,9 @@ export default function Assets() {
 
         {/* Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto border border-purple-500/30">
+              <h2 className="text-2xl font-bold text-white mb-6">
                 {editingId ? 'Edit Asset' : 'Add New Asset'}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -433,25 +481,97 @@ export default function Assets() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Asset Photo
+                    Front View Photo
                   </label>
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/jpg"
-                    onChange={handlePhotoChange}
+                    onChange={(e) => handlePhotoChange(e, 'front')}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
-                  {photoPreview && (
-                    <div className="mt-2">
+                  {photoPreviews.front && (
+                    <div className="mt-2 relative">
                       <img
-                        src={photoPreview}
-                        alt="Preview"
-                        className="w-full h-48 object-cover rounded-lg"
+                        src={photoPreviews.front}
+                        alt="Front view preview"
+                        className="w-full h-32 object-cover rounded-lg"
                       />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto('front')}
+                        className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"
+                        title="Hapus foto"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Side View Photo
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/jpg"
+                    onChange={(e) => handlePhotoChange(e, 'side')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  {photoPreviews.side && (
+                    <div className="mt-2 relative">
+                      <img
+                        src={photoPreviews.side}
+                        alt="Side view preview"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto('side')}
+                        className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"
+                        title="Hapus foto"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Top View Photo
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/jpg"
+                    onChange={(e) => handlePhotoChange(e, 'top')}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                  {photoPreviews.top && (
+                    <div className="mt-2 relative">
+                      <img
+                        src={photoPreviews.top}
+                        alt="Top view preview"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto('top')}
+                        className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-lg"
+                        title="Hapus foto"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
                     </div>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
-                    Max 5MB. Supported: JPG, PNG, WebP
+                    Max 5MB per photo. Supported: JPG, PNG, WebP
                   </p>
                 </div>
                 <div className="flex gap-3 mt-6">
@@ -460,8 +580,8 @@ export default function Assets() {
                     onClick={() => {
                       setShowModal(false);
                       setEditingId(null);
-                      setPhotoFile(null);
-                      setPhotoPreview(null);
+                      setPhotoFiles({ front: null, side: null, top: null });
+                      setPhotoPreviews({ front: null, side: null, top: null });
                     }}
                     className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                     disabled={uploading}

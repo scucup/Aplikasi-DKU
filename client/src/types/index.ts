@@ -57,17 +57,21 @@ export interface Asset {
   updatedAt: string;
 }
 
+export type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
 export interface MaintenanceRecord {
   id: string;
-  assetId: string;
-  type: MaintenanceType;
+  asset_id: string;
+  maintenance_type: 'PREVENTIVE' | 'CORRECTIVE' | 'INSPECTION';
   description: string;
-  startDate: string;
-  endDate?: string;
-  laborCost: number;
-  performedBy: string;
-  createdAt: string;
-  updatedAt: string;
+  start_date: string;
+  end_date?: string;
+  cost: number;
+  performed_by?: string;
+  status: MaintenanceStatus;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SparePart {
@@ -115,6 +119,10 @@ export interface RevenueRecord {
   assetCategory: AssetCategory;
   date: string;
   amount: number;
+  discount?: number;
+  discountPercentage?: number;
+  taxService?: number;
+  taxServicePercentage?: number;
   recordedBy: string;
   createdAt: string;
   updatedAt: string;

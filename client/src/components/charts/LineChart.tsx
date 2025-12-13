@@ -12,8 +12,8 @@ interface LineChartProps {
 export default function LineChart({ data, title, color }: LineChartProps) {
   return (
     <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-white">{title}</h3>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-bold text-white">{title}</h3>
         <div className="flex gap-2">
           <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
             <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +28,7 @@ export default function LineChart({ data, title, color }: LineChartProps) {
         </div>
       </div>
       <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={data}>
+        <AreaChart data={data} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
           <defs>
             <linearGradient id={`gradient-${color}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor={color} stopOpacity={0.8}/>
@@ -37,7 +37,7 @@ export default function LineChart({ data, title, color }: LineChartProps) {
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
           <XAxis dataKey="name" stroke="rgba(255,255,255,0.6)" tick={{ fill: 'rgba(255,255,255,0.6)' }} />
-          <YAxis stroke="rgba(255,255,255,0.6)" tick={{ fill: 'rgba(255,255,255,0.6)' }} />
+          <YAxis stroke="rgba(255,255,255,0.6)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} width={80} />
           <Tooltip 
             contentStyle={{ 
               backgroundColor: 'rgba(30, 20, 60, 0.95)', 

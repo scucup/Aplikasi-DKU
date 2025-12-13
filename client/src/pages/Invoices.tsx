@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { generateInvoicePDF } from '../components/InvoicePDF';
 
 type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID';
 type AssetCategory = 'ATV' | 'UTV' | 'SEA_SPORT' | 'POOL_TOYS' | 'LINE_SPORT';
@@ -11,9 +10,21 @@ type AssetCategory = 'ATV' | 'UTV' | 'SEA_SPORT' | 'POOL_TOYS' | 'LINE_SPORT';
 interface Resort {
   id: string;
   name: string;
+  legal_company_name?: string;
+  company_address?: string;
   contact_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+}
+
+interface BankAccount {
+  id: string;
+  bank_name: string;
+  account_number: string;
+  account_holder_name: string;
+  swift_code?: string;
+  npwp?: string;
+  is_default: boolean;
 }
 
 interface Invoice {
@@ -28,6 +39,7 @@ interface Invoice {
   status: InvoiceStatus;
   generated_by: string;
   created_at: string;
+  bank_account_id?: string;
   resort?: Resort;
   generator?: { name: string };
 }
@@ -47,9 +59,11 @@ export default function Invoices() {
   const { user, profile } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [resorts, setResorts] = useState<Resort[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   
@@ -60,11 +74,22 @@ export default function Invoices() {
     resort_id: '',
     start_date: '',
     end_date: '',
+    bank_account_id: '',
+  });
+
+  const [bankFormData, setBankFormData] = useState({
+    bank_name: '',
+    account_number: '',
+    account_holder_name: '',
+    swift_code: '',
+    npwp: '',
+    is_default: false,
   });
 
   useEffect(() => {
     fetchInvoices();
     fetchResorts();
+    fetchBankAccounts();
   }, []);
 
   const fetchResorts = async () => {
@@ -78,6 +103,26 @@ export default function Invoices() {
       setResorts(data || []);
     } catch (error) {
       console.error('Error fetching resorts:', error);
+    }
+  };
+
+  const fetchBankAccounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('bank_accounts')
+        .select('*')
+        .order('is_default', { ascending: false });
+
+      if (error) throw error;
+      setBankAccounts(data || []);
+      
+      // Set default bank account in form
+      const defaultBank = data?.find(b => b.is_default);
+      if (defaultBank) {
+        setFormData(prev => ({ ...prev, bank_account_id: defaultBank.id }));
+      }
+    } catch (error) {
+      console.error('Error fetching bank accounts:', error);
     }
   };
 
@@ -202,6 +247,7 @@ export default function Invoices() {
         resort_share: totalResortShare,
         status: 'DRAFT',
         generated_by: user?.id,
+        bank_account_id: formData.bank_account_id,
       }]);
 
       if (invoiceError) throw invoiceError;
@@ -220,7 +266,7 @@ export default function Invoices() {
       if (lineItemsError) throw lineItemsError;
 
       setShowModal(false);
-      setFormData({ resort_id: '', start_date: '', end_date: '' });
+      setFormData({ resort_id: '', start_date: '', end_date: '', bank_account_id: formData.bank_account_id });
       fetchInvoices();
       alert('Invoice generated successfully!');
     } catch (error: any) {
@@ -265,6 +311,7 @@ export default function Invoices() {
       resort_id: invoice.resort_id,
       start_date: invoice.start_date,
       end_date: invoice.end_date,
+      bank_account_id: invoice.bank_account_id || '',
     });
     
     // Fetch line items
@@ -306,6 +353,7 @@ export default function Invoices() {
           total_revenue: totalRevenue,
           dku_share: totalDkuShare,
           resort_share: totalResortShare,
+          bank_account_id: formData.bank_account_id,
         })
         .eq('id', selectedInvoice.id);
 
@@ -332,7 +380,7 @@ export default function Invoices() {
 
       setShowEditModal(false);
       setSelectedInvoice(null);
-      setFormData({ resort_id: '', start_date: '', end_date: '' });
+      setFormData({ resort_id: '', start_date: '', end_date: '', bank_account_id: '' });
       fetchInvoices();
       alert('Invoice updated successfully!');
     } catch (error: any) {
@@ -368,59 +416,39 @@ export default function Invoices() {
   };
 
   const handleDownloadPDF = async (invoice: Invoice) => {
-    // Fetch line items
-    const { data: items } = await supabase
-      .from('invoice_line_items')
-      .select('*')
-      .eq('invoice_id', invoice.id);
+    try {
+      // Fetch line items
+      const { data: items } = await supabase
+        .from('invoice_line_items')
+        .select('*')
+        .eq('invoice_id', invoice.id);
 
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(20);
-    doc.text('DKU ADVENTURE', 105, 20, { align: 'center' });
-    doc.setFontSize(12);
-    doc.text('INVOICE', 105, 30, { align: 'center' });
-    
-    // Invoice Info
-    doc.setFontSize(10);
-    doc.text(`Invoice Number: ${invoice.invoice_number}`, 20, 45);
-    doc.text(`Date: ${new Date(invoice.created_at).toLocaleDateString()}`, 20, 52);
-    doc.text(`Period: ${new Date(invoice.start_date).toLocaleDateString()} - ${new Date(invoice.end_date).toLocaleDateString()}`, 20, 59);
-    doc.text(`Status: ${invoice.status}`, 20, 66);
-    
-    // Resort Info
-    doc.text(`Bill To:`, 20, 80);
-    doc.text(`${invoice.resort?.name || '-'}`, 20, 87);
-    if (invoice.resort?.contact_name) doc.text(`Contact: ${invoice.resort.contact_name}`, 20, 94);
-    if (invoice.resort?.contact_email) doc.text(`Email: ${invoice.resort.contact_email}`, 20, 101);
-    
-    // Line Items Table
-    const tableData = items?.map(item => [
-      item.asset_category.replace('_', ' '),
-      `Rp ${Number(item.revenue).toLocaleString('id-ID')}`,
-      `${item.dku_percentage}%`,
-      `Rp ${Number(item.dku_amount).toLocaleString('id-ID')}`,
-      `${item.resort_percentage}%`,
-      `Rp ${Number(item.resort_amount).toLocaleString('id-ID')}`,
-    ]) || [];
+      // Fetch bank account
+      const { data: bankData } = await supabase
+        .from('bank_accounts')
+        .select('*')
+        .eq('id', invoice.bank_account_id || '')
+        .single();
 
-    autoTable(doc, {
-      startY: 115,
-      head: [['Asset Category', 'Revenue', 'DKU %', 'DKU Amount', 'Resort %', 'Resort Amount']],
-      body: tableData,
-      foot: [[
-        'TOTAL',
-        `Rp ${Number(invoice.total_revenue).toLocaleString('id-ID')}`,
-        '',
-        `Rp ${Number(invoice.dku_share).toLocaleString('id-ID')}`,
-        '',
-        `Rp ${Number(invoice.resort_share).toLocaleString('id-ID')}`,
-      ]],
-      theme: 'grid',
-    });
+      if (!bankData) {
+        alert('Bank account not found for this invoice');
+        return;
+      }
 
-    doc.save(`${invoice.invoice_number}.pdf`);
+      // Fetch company logo URL
+      const { data: logoData } = await supabase
+        .from('company_settings')
+        .select('setting_value')
+        .eq('setting_key', 'company_logo_url')
+        .single();
+
+      const logoUrl = logoData?.setting_value || '';
+
+      const doc = await generateInvoicePDF(invoice, items || [], bankData, logoUrl);
+      doc.save(`${invoice.invoice_number}.pdf`);
+    } catch (error: any) {
+      alert('Error generating PDF: ' + error.message);
+    }
   };
 
   const getStatusColor = (status: InvoiceStatus) => {
@@ -431,24 +459,102 @@ export default function Invoices() {
     }
   };
 
+  const handleAddBankAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const { error } = await supabase.from('bank_accounts').insert([{
+        id: crypto.randomUUID(),
+        ...bankFormData,
+      }]);
+
+      if (error) throw error;
+
+      setBankFormData({
+        bank_name: '',
+        account_number: '',
+        account_holder_name: '',
+        swift_code: '',
+        npwp: '',
+        is_default: false,
+      });
+      fetchBankAccounts();
+      alert('Bank account added successfully!');
+    } catch (error: any) {
+      alert('Error adding bank account: ' + error.message);
+    }
+  };
+
+  const handleDeleteBankAccount = async (bankId: string) => {
+    if (!confirm('Are you sure you want to delete this bank account?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('bank_accounts')
+        .delete()
+        .eq('id', bankId);
+
+      if (error) throw error;
+
+      fetchBankAccounts();
+      alert('Bank account deleted successfully!');
+    } catch (error: any) {
+      alert('Error deleting bank account: ' + error.message);
+    }
+  };
+
+  const handleSetDefaultBank = async (bankId: string) => {
+    try {
+      // Unset all defaults
+      await supabase
+        .from('bank_accounts')
+        .update({ is_default: false })
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      // Set new default
+      const { error } = await supabase
+        .from('bank_accounts')
+        .update({ is_default: true })
+        .eq('id', bankId);
+
+      if (error) throw error;
+
+      fetchBankAccounts();
+    } catch (error: any) {
+      alert('Error setting default bank: ' + error.message);
+    }
+  };
+
   return (
     <Layout>
       <div className="max-w-7xl mx-auto p-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Invoice Management</h1>
-          {canCreate && (
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-xl shadow-neumorphic hover:shadow-neumorphic-hover transition-all"
-            >
-              + Generate Invoice
-            </button>
-          )}
+          <h1 className="text-3xl font-bold text-white">Invoice Management</h1>
+          <div className="flex gap-3">
+            {canCreate && (
+              <>
+                <button
+                  onClick={() => setShowBankModal(true)}
+                  className="px-6 py-3 bg-gradient-to-br from-blue-600 to-cyan-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+                >
+                  🏦 Bank Accounts
+                </button>
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="px-6 py-3 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+                >
+                  + Generate Invoice
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {!canCreate && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
+          <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
+            <p className="text-sm text-yellow-200">
               You don't have permission to generate invoices. Only ADMIN and MANAGER can create.
             </p>
           </div>
@@ -456,89 +562,108 @@ export default function Invoices() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {invoices.map((invoice) => (
-              <div
-                key={invoice.id}
-                className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic hover:shadow-neumorphic-hover transition-all"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-bold text-gray-800">{invoice.invoice_number}</h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
-                        {invoice.status}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
-                      <div>
-                        <span className="font-medium">Resort:</span> {invoice.resort?.name || '-'}
-                      </div>
-                      <div>
-                        <span className="font-medium">Period:</span>{' '}
-                        {new Date(invoice.start_date).toLocaleDateString()} - {new Date(invoice.end_date).toLocaleDateString()}
-                      </div>
-                      <div>
-                        <span className="font-medium">Total Revenue:</span> Rp {invoice.total_revenue.toLocaleString('id-ID')}
-                      </div>
-                      <div>
-                        <span className="font-medium">Resort Share:</span> Rp {invoice.resort_share.toLocaleString('id-ID')}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="ml-4 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => handleViewInvoice(invoice)}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
-                    >
-                      View
-                    </button>
-                    <button
-                      onClick={() => handleDownloadPDF(invoice)}
-                      className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
-                    >
-                      PDF
-                    </button>
-                    {canCreate && invoice.status === 'DRAFT' && (
-                      <>
-                        <button
-                          onClick={() => handleEditInvoice(invoice)}
-                          className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleUpdateStatus(invoice.id, 'SENT')}
-                          className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm"
-                        >
-                          Send
-                        </button>
-                      </>
-                    )}
-                    {canCreate && invoice.status === 'SENT' && (
-                      <button
-                        onClick={() => handleUpdateStatus(invoice.id, 'PAID')}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                      >
-                        Mark Paid
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        onClick={() => handleDeleteInvoice(invoice.id)}
-                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-purple-500/20">
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Invoice #</th>
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Resort</th>
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Period</th>
+                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Total Revenue</th>
+                    <th className="text-right py-3 px-4 text-white/90 font-semibold">DKU Share</th>
+                    <th className="text-center py-3 px-4 text-white/90 font-semibold">Status</th>
+                    <th className="text-center py-3 px-4 text-white/90 font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.map((invoice) => (
+                    <tr key={invoice.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
+                      <td className="py-3 px-4 text-white font-medium">{invoice.invoice_number}</td>
+                      <td className="py-3 px-4 text-white/70">{invoice.resort?.name || '-'}</td>
+                      <td className="py-3 px-4 text-white/70 text-sm">
+                        {new Date(invoice.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - {new Date(invoice.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="py-3 px-4 text-right text-white font-bold">
+                        Rp {invoice.total_revenue.toLocaleString('id-ID')}
+                      </td>
+                      <td className="py-3 px-4 text-right text-white font-bold">
+                        Rp {invoice.dku_share.toLocaleString('id-ID')}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
+                          {invoice.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex justify-center gap-1">
+                          <button
+                            onClick={() => handleViewInvoice(invoice)}
+                            className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-xs"
+                            title="View"
+                          >
+                            👁️
+                          </button>
+                          <button
+                            onClick={() => handleDownloadPDF(invoice)}
+                            className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs"
+                            title="Download PDF"
+                          >
+                            📄
+                          </button>
+                          {canCreate && invoice.status === 'DRAFT' && (
+                            <>
+                              <button
+                                onClick={() => handleEditInvoice(invoice)}
+                                className="px-2 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors text-xs"
+                                title="Edit"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => handleUpdateStatus(invoice.id, 'SENT')}
+                                className="px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors text-xs"
+                                title="Send"
+                              >
+                                📧
+                              </button>
+                            </>
+                          )}
+                          {canCreate && invoice.status === 'SENT' && (
+                            <button
+                              onClick={() => handleUpdateStatus(invoice.id, 'PAID')}
+                              className="px-2 py-1 bg-green-700 text-white rounded hover:bg-green-800 transition-colors text-xs"
+                              title="Mark Paid"
+                              >
+                              ✓
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDeleteInvoice(invoice.id)}
+                              className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs"
+                              title="Delete"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {invoices.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-white/50">
+                        No invoices available
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -589,6 +714,24 @@ export default function Invoices() {
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bank Account *
+                  </label>
+                  <select
+                    required
+                    value={formData.bank_account_id}
+                    onChange={(e) => setFormData({ ...formData, bank_account_id: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">Select Bank Account</option>
+                    {bankAccounts.map((bank) => (
+                      <option key={bank.id} value={bank.id}>
+                        {bank.bank_name} - {bank.account_holder_name} {bank.is_default ? '(Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button
@@ -663,6 +806,24 @@ export default function Invoices() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bank Account *
+                  </label>
+                  <select
+                    required
+                    value={formData.bank_account_id}
+                    onChange={(e) => setFormData({ ...formData, bank_account_id: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">Select Bank Account</option>
+                    {bankAccounts.map((bank) => (
+                      <option key={bank.id} value={bank.id}>
+                        {bank.bank_name} - {bank.account_holder_name} {bank.is_default ? '(Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                   <p className="text-xs text-yellow-800">
                     Note: Updating the invoice will recalculate all line items based on the new period and current profit sharing configuration.
@@ -674,7 +835,7 @@ export default function Invoices() {
                     onClick={() => {
                       setShowEditModal(false);
                       setSelectedInvoice(null);
-                      setFormData({ resort_id: '', start_date: '', end_date: '' });
+                      setFormData({ resort_id: '', start_date: '', end_date: '', bank_account_id: '' });
                     }}
                     className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                   >
@@ -760,6 +921,163 @@ export default function Invoices() {
 
               <button
                 onClick={() => setSelectedInvoice(null)}
+                className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Bank Account Management Modal */}
+        {showBankModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+            <div className="bg-white rounded-2xl p-8 max-w-4xl w-full mx-4 my-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Bank Account Management</h2>
+              
+              {/* Add Bank Account Form */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Add New Bank Account</h3>
+                <form onSubmit={handleAddBankAccount} className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Bank Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bankFormData.bank_name}
+                      onChange={(e) => setBankFormData({ ...bankFormData, bank_name: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="e.g., MANDIRI"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Account Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bankFormData.account_number}
+                      onChange={(e) => setBankFormData({ ...bankFormData, account_number: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="e.g., 109-00-1770364 (IDR)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Account Holder Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={bankFormData.account_holder_name}
+                      onChange={(e) => setBankFormData({ ...bankFormData, account_holder_name: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="e.g., CV. DANISH KARYA UTAMA"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Swift Code
+                    </label>
+                    <input
+                      type="text"
+                      value={bankFormData.swift_code}
+                      onChange={(e) => setBankFormData({ ...bankFormData, swift_code: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="e.g., BMRIIDJA"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      NPWP
+                    </label>
+                    <input
+                      type="text"
+                      value={bankFormData.npwp}
+                      onChange={(e) => setBankFormData({ ...bankFormData, npwp: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="e.g., 91.719.463.1-213.000"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={bankFormData.is_default}
+                        onChange={(e) => setBankFormData({ ...bankFormData, is_default: e.target.checked })}
+                        className="mr-2 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Set as Default</span>
+                    </label>
+                  </div>
+                  <div className="col-span-2">
+                    <button
+                      type="submit"
+                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Add Bank Account
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Bank Accounts List */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Existing Bank Accounts</h3>
+                <div className="space-y-3">
+                  {bankAccounts.map((bank) => (
+                    <div key={bank.id} className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-gray-800">{bank.bank_name}</h4>
+                            {bank.is_default && (
+                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                Default
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600">Account: {bank.account_number}</p>
+                          <p className="text-sm text-gray-600">Holder: {bank.account_holder_name}</p>
+                          {bank.swift_code && (
+                            <p className="text-sm text-gray-600">Swift: {bank.swift_code}</p>
+                          )}
+                          {bank.npwp && (
+                            <p className="text-sm text-gray-600">NPWP: {bank.npwp}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          {!bank.is_default && (
+                            <button
+                              onClick={() => handleSetDefaultBank(bank.id)}
+                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                              title="Set as Default"
+                            >
+                              Set Default
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteBankAccount(bank.id)}
+                            className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                            title="Delete"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {bankAccounts.length === 0 && (
+                    <p className="text-center text-gray-500 py-4">No bank accounts available</p>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowBankModal(false)}
                 className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >
                 Close

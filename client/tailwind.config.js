@@ -16,6 +16,7 @@ export default {
         'neon-cyan': '#06b6d4',
         'neon-pink': '#ec4899',
         'neon-yellow': '#fbbf24',
+        'neon-green': '#10b981',
       },
       boxShadow: {
         'neumorphic': '8px 8px 16px rgba(163, 177, 198, 0.6), -8px -8px 16px rgba(255, 255, 255, 0.5)',

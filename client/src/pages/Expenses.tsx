@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 
-type ExpenseCategory = 'OPERATIONAL' | 'PERSONNEL' | 'MARKETING';
+type ExpenseCategory = 'OPERATIONAL' | 'PERSONNEL' | 'MARKETING' | 'SPAREPART' | 'SALARY' | 'BUSINESS_TRAVEL' | 'SERVICE' | 'OTHER';
 type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 interface Expense {
@@ -17,13 +17,24 @@ interface Expense {
   approved_by?: string;
   approval_date?: string;
   approval_comments?: string;
+  purchase_order_id?: string | null;
   submitter?: { name: string };
   approver?: { name: string };
+}
+
+interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  supplier_name: string;
+  total_amount: number;
+  purchase_date: string;
+  status: string;
 }
 
 export default function Expenses() {
   const { user, profile } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -39,11 +50,15 @@ export default function Expenses() {
     description: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
+    purchase_order_id: '',
   });
 
   useEffect(() => {
     fetchExpenses();
-  }, []);
+    if (canCreate) {
+      fetchPurchaseOrders();
+    }
+  }, [canCreate]);
 
   const fetchExpenses = async () => {
     try {
@@ -80,20 +95,121 @@ export default function Expenses() {
     }
   };
 
+  const fetchPurchaseOrders = async () => {
+    try {
+      // Fetch approved POs that don't have expenses yet
+      const { data: allPOs } = await supabase
+        .from('purchase_orders')
+        .select('id, po_number, supplier_name, total_amount, purchase_date, status')
+        .eq('status', 'APPROVED')
+        .order('created_at', { ascending: false });
+
+      // Fetch expenses that are linked to POs
+      const { data: linkedExpenses } = await supabase
+        .from('expenses')
+        .select('purchase_order_id')
+        .not('purchase_order_id', 'is', null);
+
+      // Filter out POs that already have expenses
+      const linkedPOIds = new Set(linkedExpenses?.map(e => e.purchase_order_id) || []);
+      const availablePOs = allPOs?.filter(po => !linkedPOIds.has(po.id)) || [];
+
+      setPurchaseOrders(availablePOs);
+    } catch (error) {
+      console.error('Error fetching purchase orders:', error);
+    }
+  };
+
+  const handlePOSelection = async (poId: string) => {
+    const selectedPO = purchaseOrders.find(po => po.id === poId);
+    if (selectedPO) {
+      // Fetch PO items to determine category
+      const { data: poItems } = await supabase
+        .from('purchase_order_items')
+        .select('item_type')
+        .eq('purchase_order_id', poId);
+
+      // Determine category based on item types
+      let category: ExpenseCategory = 'SPAREPART';
+      let descriptionPrefix = 'Sparepart Purchase';
+      
+      if (poItems && poItems.length > 0) {
+        const hasSparepart = poItems.some(item => item.item_type === 'SPAREPART');
+        const hasService = poItems.some(item => item.item_type === 'SERVICE');
+        
+        if (hasSparepart && hasService) {
+          // Mixed: both sparepart and service
+          category = 'SPAREPART'; // Default to SPAREPART for mixed
+          descriptionPrefix = 'Sparepart & Service Purchase';
+        } else if (hasService) {
+          // Only service
+          category = 'SERVICE';
+          descriptionPrefix = 'Service Purchase';
+        } else {
+          // Only sparepart
+          category = 'SPAREPART';
+          descriptionPrefix = 'Sparepart Purchase';
+        }
+      }
+
+      setFormData({
+        ...formData,
+        purchase_order_id: poId,
+        category: category,
+        description: `${descriptionPrefix} - PO: ${selectedPO.po_number} - Supplier: ${selectedPO.supplier_name}`,
+        amount: selectedPO.total_amount.toString(),
+        date: selectedPO.purchase_date,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        purchase_order_id: '',
+        category: 'OPERATIONAL',
+        description: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const expenseId = crypto.randomUUID();
       const { error } = await supabase.from('expenses').insert([
         {
-          id: crypto.randomUUID(),
-          ...formData,
+          id: expenseId,
+          category: formData.category,
+          description: formData.description,
           amount: parseFloat(formData.amount),
+          date: formData.date,
           submitted_by: user?.id,
           status: 'PENDING',
+          purchase_order_id: formData.purchase_order_id || null,
         },
       ]);
 
       if (error) throw error;
+
+      // Send notification to Manager for approval
+      const { data: managers } = await supabase
+        .from('users')
+        .select('id, name')
+        .eq('role', 'MANAGER');
+
+      if (managers && managers.length > 0) {
+        const notifications = managers.map(manager => ({
+          user_id: manager.id,
+          title: 'Expense Approval Required',
+          message: `New expense has been created by ${profile?.name || 'Admin'}. Category: ${formData.category}. Amount: Rp ${parseFloat(formData.amount).toLocaleString('id-ID')}. Description: ${formData.description}. Please review and approve.`,
+          notification_type: 'EXPENSE_APPROVAL_NEEDED',
+          reference_id: expenseId,
+          reference_type: 'EXPENSE',
+          status: 'UNREAD',
+        }));
+
+        await supabase.from('notifications').insert(notifications);
+      }
 
       setShowModal(false);
       setFormData({
@@ -101,8 +217,11 @@ export default function Expenses() {
         description: '',
         amount: '',
         date: new Date().toISOString().split('T')[0],
+        purchase_order_id: '',
       });
       fetchExpenses();
+      fetchPurchaseOrders(); // Refresh PO list
+      alert('Expense created successfully! Notification sent to Manager for approval.');
     } catch (error: any) {
       alert('Error creating expense: ' + error.message);
     }
@@ -123,10 +242,22 @@ export default function Expenses() {
     switch (category) {
       case 'OPERATIONAL':
         return 'bg-blue-500';
+      case 'SPAREPART':
+        return 'bg-teal-500';
+      case 'SERVICE':
+        return 'bg-indigo-500';
+      case 'SALARY':
+        return 'bg-green-500';
       case 'PERSONNEL':
         return 'bg-purple-500';
+      case 'BUSINESS_TRAVEL':
+        return 'bg-orange-500';
       case 'MARKETING':
         return 'bg-pink-500';
+      case 'OTHER':
+        return 'bg-gray-500';
+      default:
+        return 'bg-gray-500';
     }
   };
 
@@ -140,6 +271,7 @@ export default function Expenses() {
     if (!selectedExpense) return;
     
     try {
+      // Update expense status
       const { error } = await supabase
         .from('expenses')
         .update({
@@ -152,11 +284,91 @@ export default function Expenses() {
 
       if (error) throw error;
 
+      // If expense is linked to a PO, update inventory for SPAREPART items
+      if (selectedExpense.purchase_order_id) {
+        // Get PO details
+        const { data: poData } = await supabase
+          .from('purchase_orders')
+          .select('resort_id, supplier_name, purchase_date')
+          .eq('id', selectedExpense.purchase_order_id)
+          .single();
+
+        if (poData) {
+          // Get PO items
+          const { data: poItems } = await supabase
+            .from('purchase_order_items')
+            .select('*')
+            .eq('purchase_order_id', selectedExpense.purchase_order_id);
+
+          if (poItems) {
+            // Update inventory for each SPAREPART item
+            for (const item of poItems) {
+              // Skip SERVICE items
+              if (item.item_type === 'SERVICE') {
+                continue;
+              }
+
+              // Check if inventory exists
+              const { data: existingInventory } = await supabase
+                .from('sparepart_inventory')
+                .select('*')
+                .eq('sparepart_name', item.sparepart_name)
+                .eq('asset_category', item.asset_category)
+                .eq('resort_id', poData.resort_id)
+                .maybeSingle();
+
+              if (existingInventory) {
+                // Update existing inventory
+                await supabase
+                  .from('sparepart_inventory')
+                  .update({
+                    current_stock: existingInventory.current_stock + item.quantity,
+                    last_unit_price: item.unit_price,
+                    last_purchase_date: poData.purchase_date,
+                    last_supplier: poData.supplier_name,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', existingInventory.id);
+              } else {
+                // Create new inventory record
+                await supabase
+                  .from('sparepart_inventory')
+                  .insert([{
+                    sparepart_name: item.sparepart_name,
+                    asset_category: item.asset_category,
+                    resort_id: poData.resort_id,
+                    current_stock: item.quantity,
+                    unit: item.unit,
+                    last_unit_price: item.unit_price,
+                    last_purchase_date: poData.purchase_date,
+                    last_supplier: poData.supplier_name,
+                  }]);
+              }
+
+              // Create stock transaction
+              await supabase
+                .from('stock_transactions')
+                .insert([{
+                  inventory_id: existingInventory?.id,
+                  transaction_type: 'PURCHASE',
+                  quantity: item.quantity,
+                  unit_price: item.unit_price,
+                  reference_type: 'EXPENSE',
+                  reference_id: selectedExpense.id,
+                  created_by: user?.id,
+                }]);
+            }
+          }
+        }
+      }
+
+      alert('Expense approved successfully! Inventory has been updated.');
       setShowApprovalModal(false);
       setSelectedExpense(null);
       setApprovalComments('');
       fetchExpenses();
     } catch (error: any) {
+      console.error('Error approving expense:', error);
       alert('Error approving expense: ' + error.message);
     }
   };
@@ -170,6 +382,7 @@ export default function Expenses() {
     }
     
     try {
+      // Update expense status
       const { error } = await supabase
         .from('expenses')
         .update({
@@ -182,11 +395,16 @@ export default function Expenses() {
 
       if (error) throw error;
 
+      // NOTE: No need to reverse inventory since it was never added
+      // Inventory only updates when expense is approved
+
+      alert('Expense rejected successfully.');
       setShowApprovalModal(false);
       setSelectedExpense(null);
       setApprovalComments('');
       fetchExpenses();
     } catch (error: any) {
+      console.error('Error rejecting expense:', error);
       alert('Error rejecting expense: ' + error.message);
     }
   };
@@ -195,11 +413,11 @@ export default function Expenses() {
     <Layout>
       <div className="max-w-7xl mx-auto p-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Expenses Management</h1>
+          <h1 className="text-3xl font-bold text-white">Expenses Management</h1>
           {canCreate && (
             <button
               onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl shadow-neumorphic hover:shadow-neumorphic-hover transition-all"
+              className="px-6 py-3 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
             >
               + Add Expense
             </button>
@@ -209,12 +427,12 @@ export default function Expenses() {
         {/* Statistics for Manager */}
         {canApprove && (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-xl p-4 shadow-md">
-              <div className="text-sm text-yellow-800 font-medium mb-1">Pending</div>
-              <div className="text-2xl font-bold text-yellow-900">
+            <div className="bg-yellow-900/30 backdrop-blur-sm rounded-xl p-4 border border-yellow-500/30">
+              <div className="text-sm text-yellow-200 font-medium mb-1">Pending</div>
+              <div className="text-2xl font-bold text-white">
                 {expenses.filter((e) => e.status === 'PENDING').length}
               </div>
-              <div className="text-xs text-yellow-700 mt-1">
+              <div className="text-xs text-yellow-300 mt-1">
                 Rp{' '}
                 {expenses
                   .filter((e) => e.status === 'PENDING')
@@ -222,12 +440,12 @@ export default function Expenses() {
                   .toLocaleString('id-ID')}
               </div>
             </div>
-            <div className="bg-gradient-to-br from-green-100 to-green-200 rounded-xl p-4 shadow-md">
-              <div className="text-sm text-green-800 font-medium mb-1">Approved</div>
-              <div className="text-2xl font-bold text-green-900">
+            <div className="bg-green-900/30 backdrop-blur-sm rounded-xl p-4 border border-green-500/30">
+              <div className="text-sm text-green-200 font-medium mb-1">Approved</div>
+              <div className="text-2xl font-bold text-white">
                 {expenses.filter((e) => e.status === 'APPROVED').length}
               </div>
-              <div className="text-xs text-green-700 mt-1">
+              <div className="text-xs text-green-300 mt-1">
                 Rp{' '}
                 {expenses
                   .filter((e) => e.status === 'APPROVED')
@@ -235,12 +453,12 @@ export default function Expenses() {
                   .toLocaleString('id-ID')}
               </div>
             </div>
-            <div className="bg-gradient-to-br from-red-100 to-red-200 rounded-xl p-4 shadow-md">
-              <div className="text-sm text-red-800 font-medium mb-1">Rejected</div>
-              <div className="text-2xl font-bold text-red-900">
+            <div className="bg-red-900/30 backdrop-blur-sm rounded-xl p-4 border border-red-500/30">
+              <div className="text-sm text-red-200 font-medium mb-1">Rejected</div>
+              <div className="text-2xl font-bold text-white">
                 {expenses.filter((e) => e.status === 'REJECTED').length}
               </div>
-              <div className="text-xs text-red-700 mt-1">
+              <div className="text-xs text-red-300 mt-1">
                 Rp{' '}
                 {expenses
                   .filter((e) => e.status === 'REJECTED')
@@ -248,10 +466,10 @@ export default function Expenses() {
                   .toLocaleString('id-ID')}
               </div>
             </div>
-            <div className="bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl p-4 shadow-md">
-              <div className="text-sm text-blue-800 font-medium mb-1">Total</div>
-              <div className="text-2xl font-bold text-blue-900">{expenses.length}</div>
-              <div className="text-xs text-blue-700 mt-1">
+            <div className="bg-blue-900/30 backdrop-blur-sm rounded-xl p-4 border border-blue-500/30">
+              <div className="text-sm text-blue-200 font-medium mb-1">Total</div>
+              <div className="text-2xl font-bold text-white">{expenses.length}</div>
+              <div className="text-xs text-blue-300 mt-1">
                 Rp{' '}
                 {expenses
                   .reduce((sum, e) => sum + e.amount, 0)
@@ -263,9 +481,9 @@ export default function Expenses() {
 
         {/* Filter Section */}
         {canApprove && (
-          <div className="mb-6 bg-white rounded-xl p-4 shadow-md">
+          <div className="mb-6 bg-purple-900/20 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20">
             <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-gray-700">Filter by Status:</span>
+              <span className="text-sm font-medium text-white/90">Filter by Status:</span>
               <div className="flex gap-2">
                 {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
                   <button
@@ -274,7 +492,7 @@ export default function Expenses() {
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                       filterStatus === status
                         ? 'bg-purple-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-purple-800/30 text-white/70 hover:bg-purple-800/50'
                     }`}
                   >
                     {status}
@@ -286,8 +504,8 @@ export default function Expenses() {
         )}
 
         {!canCreate && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
+          <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
+            <p className="text-sm text-yellow-200">
               You don't have permission to create expenses. Only ADMIN and MANAGER can create.
             </p>
           </div>
@@ -295,102 +513,121 @@ export default function Expenses() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-purple-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
           </div>
         ) : (
-          <div className="space-y-4">
-            {expenses
-              .filter((expense) => filterStatus === 'ALL' || expense.status === filterStatus)
-              .map((expense) => (
-              <div
-                key={expense.id}
-                className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-6 shadow-neumorphic hover:shadow-neumorphic-hover transition-all"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div
-                        className={`w-3 h-3 rounded-full ${getCategoryColor(expense.category)}`}
-                      ></div>
-                      <h3 className="text-lg font-bold text-gray-800">{expense.description}</h3>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                          expense.status
-                        )}`}
-                      >
-                        {expense.status}
-                      </span>
-                      {expense.submitted_by === user?.id && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                          Your Expense
+          <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-purple-500/20">
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Date</th>
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Description</th>
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Category</th>
+                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Amount</th>
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Submitted By</th>
+                    <th className="text-center py-3 px-4 text-white/90 font-semibold">Status</th>
+                    {canApprove && <th className="text-center py-3 px-4 text-white/90 font-semibold">Action</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses
+                    .filter((expense) => filterStatus === 'ALL' || expense.status === filterStatus)
+                    .map((expense) => (
+                    <tr key={expense.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
+                      <td className="py-3 px-4 text-white">
+                        {new Date(expense.date).toLocaleDateString('id-ID', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="text-white font-medium">{expense.description}</div>
+                        {expense.purchase_order_id && (
+                          <span className="text-xs text-green-400">🛒 Linked to PO</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(expense.category)}`}>
+                          {expense.category}
                         </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
-                      <div>
-                        <span className="font-medium">Category:</span> {expense.category}
-                      </div>
-                      <div>
-                        <span className="font-medium">Amount:</span> Rp{' '}
-                        {expense.amount.toLocaleString('id-ID')}
-                      </div>
-                      <div>
-                        <span className="font-medium">Date:</span>{' '}
-                        {new Date(expense.date).toLocaleDateString()}
-                      </div>
-                      <div>
-                        <span className="font-medium">Submitted by:</span>{' '}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="text-white font-bold">
+                          Rp {expense.amount.toLocaleString('id-ID')}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-white/70">
                         {(expense as any).submitter?.name || '-'}
-                      </div>
-                    </div>
-                    
-                    {/* Approval Information */}
-                    {expense.status !== 'PENDING' && (
-                      <div className="mt-3 pt-3 border-t border-gray-300">
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                          <div>
-                            <span className="font-medium">Approved by:</span>{' '}
-                            {(expense as any).approver?.name || '-'}
-                          </div>
-                          <div>
-                            <span className="font-medium">Approval Date:</span>{' '}
-                            {expense.approval_date
-                              ? new Date(expense.approval_date).toLocaleDateString()
-                              : '-'}
-                          </div>
-                          {expense.approval_comments && (
-                            <div className="col-span-2 md:col-span-1">
-                              <span className="font-medium">Comments:</span> {expense.approval_comments}
-                            </div>
+                        {expense.submitted_by === user?.id && (
+                          <span className="ml-2 text-xs text-blue-400">(You)</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(expense.status)}`}>
+                          {expense.status}
+                        </span>
+                      </td>
+                      {canApprove && (
+                        <td className="py-3 px-4 text-center">
+                          {expense.status === 'PENDING' && (
+                            <button
+                              onClick={() => handleApprovalAction(expense)}
+                              className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium"
+                            >
+                              Review
+                            </button>
                           )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Approval Actions for Manager */}
-                  {canApprove && expense.status === 'PENDING' && (
-                    <div className="ml-4">
-                      <button
-                        onClick={() => handleApprovalAction(expense)}
-                        className="px-4 py-2 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all text-sm font-medium"
-                      >
-                        Review
-                      </button>
-                    </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  {expenses.filter((expense) => filterStatus === 'ALL' || expense.status === filterStatus).length === 0 && (
+                    <tr>
+                      <td colSpan={canApprove ? 7 : 6} className="py-8 text-center text-white/50">
+                        No expenses available
+                      </td>
+                    </tr>
                   )}
-                </div>
-              </div>
-            ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* Add Expense Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">Add New Expense</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Purchase Order Selection */}
+                {purchaseOrders.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Link to Purchase Order (Optional)
+                    </label>
+                    <select
+                      value={formData.purchase_order_id}
+                      onChange={(e) => handlePOSelection(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                      <option value="">-- Select Purchase Order or Create Manual --</option>
+                      {purchaseOrders.map((po) => (
+                        <option key={po.id} value={po.id}>
+                          {po.po_number} - {po.supplier_name} - Rp {po.total_amount.toLocaleString('id-ID')}
+                        </option>
+                      ))}
+                    </select>
+                    {formData.purchase_order_id && (
+                      <p className="text-xs text-green-600 mt-1">
+                        ✓ Expense will be linked to this Purchase Order
+                      </p>
+                    )}
+                  </div>
+                )}
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category *
@@ -401,12 +638,25 @@ export default function Expenses() {
                     onChange={(e) =>
                       setFormData({ ...formData, category: e.target.value as ExpenseCategory })
                     }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    disabled={!!formData.purchase_order_id}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                      formData.purchase_order_id ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
                   >
                     <option value="OPERATIONAL">Operational</option>
+                    <option value="SPAREPART">Spare Part</option>
+                    <option value="SERVICE">Service</option>
+                    <option value="SALARY">Salary</option>
                     <option value="PERSONNEL">Personnel</option>
+                    <option value="BUSINESS_TRAVEL">Business Travel</option>
                     <option value="MARKETING">Marketing</option>
+                    <option value="OTHER">Other</option>
                   </select>
+                  {formData.purchase_order_id && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Category is auto-selected based on Purchase Order items
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

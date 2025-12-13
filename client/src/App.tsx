@@ -4,12 +4,15 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Resorts from './pages/Resorts';
 import Assets from './pages/Assets';
+import AssetDetail from './pages/AssetDetail';
 import Expenses from './pages/Expenses';
 import Maintenance from './pages/Maintenance';
 import Revenue from './pages/Revenue';
 import Spareparts from './pages/Spareparts';
 import Notifications from './pages/Notifications';
 import Invoices from './pages/Invoices';
+import Settings from './pages/Settings';
+import ResortAnalytics from './pages/ResortAnalytics';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -38,6 +41,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Assets />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/assets/:id"
+        element={
+          <ProtectedRoute>
+            <AssetDetail />
           </ProtectedRoute>
         }
       />
@@ -86,6 +97,22 @@ function App() {
         element={
           <ProtectedRoute>
             <Invoices />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/resort-analytics"
+        element={
+          <ProtectedRoute>
+            <ResortAnalytics />
           </ProtectedRoute>
         }
       />
