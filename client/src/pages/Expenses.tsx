@@ -598,20 +598,20 @@ export default function Expenses() {
 
         {/* Add Expense Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Add New Expense</h2>
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30 max-h-[90vh] overflow-y-auto">
+              <h2 className="text-2xl font-bold text-white mb-6">Add New Expense</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Purchase Order Selection */}
                 {purchaseOrders.length > 0 && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-white/90 mb-1">
                       Link to Purchase Order (Optional)
                     </label>
                     <select
                       value={formData.purchase_order_id}
                       onChange={(e) => handlePOSelection(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="">-- Select Purchase Order or Create Manual --</option>
                       {purchaseOrders.map((po) => (
@@ -621,7 +621,7 @@ export default function Expenses() {
                       ))}
                     </select>
                     {formData.purchase_order_id && (
-                      <p className="text-xs text-green-600 mt-1">
+                      <p className="text-xs text-green-300 mt-1">
                         ✓ Expense will be linked to this Purchase Order
                       </p>
                     )}
@@ -629,7 +629,7 @@ export default function Expenses() {
                 )}
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white/90 mb-1">
                     Category *
                   </label>
                   <select
@@ -639,8 +639,8 @@ export default function Expenses() {
                       setFormData({ ...formData, category: e.target.value as ExpenseCategory })
                     }
                     disabled={!!formData.purchase_order_id}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      formData.purchase_order_id ? 'bg-gray-100 cursor-not-allowed' : ''
+                    className={`w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500 ${
+                      formData.purchase_order_id ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
                     <option value="OPERATIONAL">Operational</option>
@@ -653,13 +653,13 @@ export default function Expenses() {
                     <option value="OTHER">Other</option>
                   </select>
                   {formData.purchase_order_id && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-white/60 mt-1">
                       Category is auto-selected based on Purchase Order items
                     </p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-white/90 mb-1">
                     Description *
                   </label>
                   <textarea
@@ -667,40 +667,42 @@ export default function Expenses() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter expense description"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
+                  <label className="block text-sm font-medium text-white/90 mb-1">Amount *</label>
                   <input
                     type="number"
                     required
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="Enter amount"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                  <label className="block text-sm font-medium text-white/90 mb-1">Date *</label>
                   <input
                     type="date"
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors font-semibold"
                   >
                     Submit
                   </button>
