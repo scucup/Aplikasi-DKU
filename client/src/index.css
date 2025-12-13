@@ -9,9 +9,37 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+  /* Prevent horizontal scroll */
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+  }
+  
+  /* Better touch targets */
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improve table scrolling */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Safe area for notched devices */
+@supports (padding: max(0px)) {
+  .safe-area-inset-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
 }

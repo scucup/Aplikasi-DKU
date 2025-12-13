@@ -3,8 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
-import AreaChart from '../components/charts/AreaChart';
-import BarChart from '../components/charts/BarChart';
 import DonutChart from '../components/charts/DonutChart';
 import LineChart from '../components/charts/LineChart';
 
@@ -78,15 +76,10 @@ export default function ResortAnalytics() {
         .from('profit_sharing_configs')
         .select('*');
 
-      // Fetch expenses (we'll need to link by resort somehow - for now aggregate all)
-      const { data: expensesData } = await supabase
-        .from('expenses')
-        .select('amount, status, date');
-
       // Fetch assets
       const { data: assetsData } = await supabase
         .from('assets')
-        .select('resort_id, status, category');
+        .select('id, resort_id, status, category');
 
       // Fetch maintenance records
       const { data: maintenanceData } = await supabase
