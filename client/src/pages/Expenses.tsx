@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 
-type ExpenseCategory = 'OPERATIONAL' | 'PERSONNEL' | 'MARKETING' | 'SPAREPART' | 'SALARY' | 'BUSINESS_TRAVEL' | 'SERVICE' | 'OTHER' | 'TOOLS';
+type ExpenseCategory = 'OPERATIONAL' | 'FUEL' | 'MARKETING' | 'SPAREPART' | 'SALARY' | 'BUSINESS_TRAVEL' | 'SERVICE' | 'OTHER' | 'TOOLS';
 type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 interface Expense {
@@ -18,19 +18,11 @@ interface Expense {
   approved_by?: string;
   approval_date?: string;
   approval_comments?: string;
-  purchase_order_id?: string | null;
+  asset_category?: string | null;
+  supplier?: string | null;
   submitter?: { name: string };
   approver?: { name: string };
   resort?: { name: string };
-}
-
-interface PurchaseOrder {
-  id: string;
-  po_number: string;
-  supplier_name: string;
-  total_amount: number;
-  purchase_date: string;
-  status: string;
 }
 
 interface Resort {
@@ -38,10 +30,24 @@ interface Resort {
   name: string;
 }
 
+type AssetCategory = 'ATV' | 'UTV' | 'SEA_SPORT' | 'POOL_TOYS' | 'LINE_SPORT';
+
+interface SparepartItem {
+  id: string;
+  sparepart_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  asset_category: AssetCategory | '';
+  unit: string;
+}
+
+// Asset categories constant
+const ASSET_CATEGORIES: AssetCategory[] = ['ATV', 'UTV', 'SEA_SPORT', 'POOL_TOYS', 'LINE_SPORT'];
+
 export default function Expenses() {
   const { user, profile } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [resorts, setResorts] = useState<Resort[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -53,7 +59,7 @@ export default function Expenses() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   
-  const canCreate = profile?.role === 'ADMIN' || profile?.role === 'MANAGER';
+  const canCreate = profile?.role === 'ADMIN' || profile?.role === 'MANAGER' || profile?.role === 'ENGINEER';
   const canApprove = profile?.role === 'MANAGER';
   
   const [formData, setFormData] = useState({
@@ -62,16 +68,24 @@ export default function Expenses() {
     amount: '',
     date: new Date().toISOString().split('T')[0],
     resort_id: '',
-    purchase_order_id: '',
+    supplier: '',
   });
+
+  // Sparepart items for SPAREPART category
+  const [sparepartItems, setSparepartItems] = useState<SparepartItem[]>([
+    { id: crypto.randomUUID(), sparepart_name: '', quantity: 1, unit_price: 0, total_price: 0, asset_category: '', unit: 'pcs' }
+  ]);
+  
+  // Check if category is SPAREPART (needs sparepart items)
+  const isSparepart = formData.category === 'SPAREPART';
+
+  // Calculate total from sparepart items
+  const sparepartTotal = sparepartItems.reduce((sum, item) => sum + item.total_price, 0);
 
   useEffect(() => {
     fetchExpenses();
     fetchResorts();
-    if (canCreate) {
-      fetchPurchaseOrders();
-    }
-  }, [canCreate]);
+  }, []);
 
   const fetchResorts = async () => {
     try {
@@ -85,6 +99,40 @@ export default function Expenses() {
     } catch (error) {
       console.error('Error fetching resorts:', error);
     }
+  };
+
+  // Sparepart item management functions
+  const addSparepartItem = () => {
+    setSparepartItems([
+      ...sparepartItems,
+      { id: crypto.randomUUID(), sparepart_name: '', quantity: 1, unit_price: 0, total_price: 0, asset_category: '', unit: 'pcs' }
+    ]);
+  };
+
+  const removeSparepartItem = (id: string) => {
+    if (sparepartItems.length > 1) {
+      setSparepartItems(sparepartItems.filter(item => item.id !== id));
+    }
+  };
+
+  const updateSparepartItem = (id: string, field: keyof SparepartItem, value: string | number) => {
+    setSparepartItems(sparepartItems.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, [field]: value };
+        // Recalculate total_price when quantity or unit_price changes
+        if (field === 'quantity' || field === 'unit_price') {
+          updated.total_price = updated.quantity * updated.unit_price;
+        }
+        return updated;
+      }
+      return item;
+    }));
+  };
+
+  const resetSparepartItems = () => {
+    setSparepartItems([
+      { id: crypto.randomUUID(), sparepart_name: '', quantity: 1, unit_price: 0, total_price: 0, asset_category: '', unit: 'pcs' }
+    ]);
   };
 
   const fetchExpenses = async () => {
@@ -131,102 +179,73 @@ export default function Expenses() {
     }
   };
 
-  const fetchPurchaseOrders = async () => {
-    try {
-      // Fetch approved POs that don't have expenses yet
-      const { data: allPOs } = await supabase
-        .from('purchase_orders')
-        .select('id, po_number, supplier_name, total_amount, purchase_date, status')
-        .eq('status', 'APPROVED')
-        .order('created_at', { ascending: false });
-
-      // Fetch expenses that are linked to POs
-      const { data: linkedExpenses } = await supabase
-        .from('expenses')
-        .select('purchase_order_id')
-        .not('purchase_order_id', 'is', null);
-
-      // Filter out POs that already have expenses
-      const linkedPOIds = new Set(linkedExpenses?.map(e => e.purchase_order_id) || []);
-      const availablePOs = allPOs?.filter(po => !linkedPOIds.has(po.id)) || [];
-
-      setPurchaseOrders(availablePOs);
-    } catch (error) {
-      console.error('Error fetching purchase orders:', error);
-    }
-  };
-
-  const handlePOSelection = async (poId: string) => {
-    const selectedPO = purchaseOrders.find(po => po.id === poId);
-    if (selectedPO) {
-      // Fetch PO items to determine category
-      const { data: poItems } = await supabase
-        .from('purchase_order_items')
-        .select('item_type')
-        .eq('purchase_order_id', poId);
-
-      // Determine category based on item types
-      let category: ExpenseCategory = 'SPAREPART';
-      let descriptionPrefix = 'Sparepart Purchase';
-      
-      if (poItems && poItems.length > 0) {
-        const hasSparepart = poItems.some(item => item.item_type === 'SPAREPART');
-        const hasService = poItems.some(item => item.item_type === 'SERVICE');
-        
-        if (hasSparepart && hasService) {
-          // Mixed: both sparepart and service
-          category = 'SPAREPART'; // Default to SPAREPART for mixed
-          descriptionPrefix = 'Sparepart & Service Purchase';
-        } else if (hasService) {
-          // Only service
-          category = 'SERVICE';
-          descriptionPrefix = 'Service Purchase';
-        } else {
-          // Only sparepart
-          category = 'SPAREPART';
-          descriptionPrefix = 'Sparepart Purchase';
-        }
-      }
-
-      setFormData({
-        ...formData,
-        purchase_order_id: poId,
-        category: category,
-        description: `${descriptionPrefix} - PO: ${selectedPO.po_number} - Supplier: ${selectedPO.supplier_name}`,
-        amount: selectedPO.total_amount.toString(),
-        date: selectedPO.purchase_date,
-      });
-    } else {
-      setFormData({
-        ...formData,
-        purchase_order_id: '',
-        category: 'OPERATIONAL',
-        description: '',
-        amount: '',
-        date: new Date().toISOString().split('T')[0],
-      });
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate sparepart items for SPAREPART category
+    if (formData.category === 'SPAREPART') {
+      if (!formData.resort_id) {
+        alert('Please select a resort for Sparepart expenses');
+        return;
+      }
+      if (!formData.supplier.trim()) {
+        alert('Please enter supplier name for Sparepart expenses');
+        return;
+      }
+      const invalidItems = sparepartItems.filter(item => 
+        !item.sparepart_name.trim() || 
+        item.quantity <= 0 || 
+        item.unit_price <= 0 ||
+        !item.asset_category
+      );
+      if (invalidItems.length > 0) {
+        alert('Please fill in all sparepart details (name, asset category, quantity, and price)');
+        return;
+      }
+    }
+    
     try {
       const expenseId = crypto.randomUUID();
+      
+      // For SPAREPART, use calculated total from items
+      const finalAmount = formData.category === 'SPAREPART' ? sparepartTotal : parseFloat(formData.amount);
+      
       const { error } = await supabase.from('expenses').insert([
         {
           id: expenseId,
           category: formData.category,
           description: formData.description,
-          amount: parseFloat(formData.amount),
+          amount: finalAmount,
           date: formData.date,
           resort_id: formData.resort_id || null,
           submitted_by: user?.id,
           status: 'PENDING',
-          purchase_order_id: formData.purchase_order_id || null,
+          supplier: formData.category === 'SPAREPART' ? formData.supplier : null,
         },
       ]);
 
       if (error) throw error;
+
+      // Insert sparepart items if category is SPAREPART
+      if (formData.category === 'SPAREPART' && sparepartItems.length > 0) {
+        const sparepartData = sparepartItems.map(item => ({
+          expense_id: expenseId,
+          sparepart_name: item.sparepart_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          asset_category: item.asset_category,
+          unit: item.unit,
+        }));
+
+        const { error: sparepartError } = await supabase
+          .from('expense_spareparts')
+          .insert(sparepartData);
+
+        if (sparepartError) {
+          console.error('Error inserting sparepart items:', sparepartError);
+        }
+      }
 
       // Send notification to Manager for approval
       const { data: managers } = await supabase
@@ -238,7 +257,7 @@ export default function Expenses() {
         const notifications = managers.map(manager => ({
           user_id: manager.id,
           title: 'Expense Approval Required',
-          message: `New expense has been created by ${profile?.name || 'Admin'}. Category: ${formData.category}. Amount: Rp ${parseFloat(formData.amount).toLocaleString('id-ID')}. Description: ${formData.description}. Please review and approve.`,
+          message: `New expense has been created by ${profile?.name || 'Admin'}. Category: ${formData.category}. Amount: Rp ${finalAmount.toLocaleString('id-ID')}. Description: ${formData.description}. Please review and approve.`,
           notification_type: 'EXPENSE_APPROVAL_NEEDED',
           reference_id: expenseId,
           reference_type: 'EXPENSE',
@@ -255,10 +274,10 @@ export default function Expenses() {
         amount: '',
         date: new Date().toISOString().split('T')[0],
         resort_id: '',
-        purchase_order_id: '',
+        supplier: '',
       });
+      resetSparepartItems();
       fetchExpenses();
-      fetchPurchaseOrders(); // Refresh PO list
       alert('Expense created successfully! Notification sent to Manager for approval.');
     } catch (error: any) {
       alert('Error creating expense: ' + error.message);
@@ -288,7 +307,7 @@ export default function Expenses() {
         return 'bg-indigo-500';
       case 'SALARY':
         return 'bg-green-500';
-      case 'PERSONNEL':
+      case 'FUEL':
         return 'bg-purple-500';
       case 'BUSINESS_TRAVEL':
         return 'bg-orange-500';
@@ -324,72 +343,43 @@ export default function Expenses() {
 
       if (error) throw error;
 
-      // If expense is linked to a PO, update inventory for SPAREPART items
-      if (selectedExpense.purchase_order_id) {
-        // Get PO details
-        const { data: poData } = await supabase
-          .from('purchase_orders')
-          .select('resort_id, supplier_name, purchase_date')
-          .eq('id', selectedExpense.purchase_order_id)
-          .single();
+      // If expense is SPAREPART category, update inventory
+      if (selectedExpense.category === 'SPAREPART' && selectedExpense.resort_id) {
+        // Get expense sparepart items
+        const { data: sparepartItemsData } = await supabase
+          .from('expense_spareparts')
+          .select('*')
+          .eq('expense_id', selectedExpense.id);
 
-        if (poData) {
-          // Get PO items
-          const { data: poItems } = await supabase
-            .from('purchase_order_items')
-            .select('*')
-            .eq('purchase_order_id', selectedExpense.purchase_order_id);
+        if (sparepartItemsData && sparepartItemsData.length > 0) {
+          for (const item of sparepartItemsData) {
+            // Check if inventory exists
+            const { data: existingInventory } = await supabase
+              .from('sparepart_inventory')
+              .select('*')
+              .eq('sparepart_name', item.sparepart_name)
+              .eq('asset_category', item.asset_category)
+              .eq('resort_id', selectedExpense.resort_id)
+              .maybeSingle();
 
-          if (poItems) {
-            // Update inventory for each SPAREPART item
-            for (const item of poItems) {
-              // Skip SERVICE items
-              if (item.item_type === 'SERVICE') {
-                continue;
-              }
-
-              // Check if inventory exists
-              const { data: existingInventory } = await supabase
+            if (existingInventory) {
+              // Update existing inventory
+              await supabase
                 .from('sparepart_inventory')
-                .select('*')
-                .eq('sparepart_name', item.sparepart_name)
-                .eq('asset_category', item.asset_category)
-                .eq('resort_id', poData.resort_id)
-                .maybeSingle();
-
-              if (existingInventory) {
-                // Update existing inventory
-                await supabase
-                  .from('sparepart_inventory')
-                  .update({
-                    current_stock: existingInventory.current_stock + item.quantity,
-                    last_unit_price: item.unit_price,
-                    last_purchase_date: poData.purchase_date,
-                    last_supplier: poData.supplier_name,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq('id', existingInventory.id);
-              } else {
-                // Create new inventory record
-                await supabase
-                  .from('sparepart_inventory')
-                  .insert([{
-                    sparepart_name: item.sparepart_name,
-                    asset_category: item.asset_category,
-                    resort_id: poData.resort_id,
-                    current_stock: item.quantity,
-                    unit: item.unit,
-                    last_unit_price: item.unit_price,
-                    last_purchase_date: poData.purchase_date,
-                    last_supplier: poData.supplier_name,
-                  }]);
-              }
+                .update({
+                  current_stock: existingInventory.current_stock + item.quantity,
+                  last_unit_price: item.unit_price,
+                  last_purchase_date: selectedExpense.date,
+                  last_supplier: selectedExpense.supplier || null,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', existingInventory.id);
 
               // Create stock transaction
               await supabase
                 .from('stock_transactions')
                 .insert([{
-                  inventory_id: existingInventory?.id,
+                  inventory_id: existingInventory.id,
                   transaction_type: 'PURCHASE',
                   quantity: item.quantity,
                   unit_price: item.unit_price,
@@ -397,12 +387,43 @@ export default function Expenses() {
                   reference_id: selectedExpense.id,
                   created_by: user?.id,
                 }]);
+            } else {
+              // Create new inventory record
+              const { data: newInventory } = await supabase
+                .from('sparepart_inventory')
+                .insert([{
+                  sparepart_name: item.sparepart_name,
+                  asset_category: item.asset_category,
+                  resort_id: selectedExpense.resort_id,
+                  current_stock: item.quantity,
+                  unit: item.unit || 'pcs',
+                  last_unit_price: item.unit_price,
+                  last_purchase_date: selectedExpense.date,
+                  last_supplier: selectedExpense.supplier || null,
+                }])
+                .select()
+                .single();
+
+              // Create stock transaction
+              if (newInventory) {
+                await supabase
+                  .from('stock_transactions')
+                  .insert([{
+                    inventory_id: newInventory.id,
+                    transaction_type: 'PURCHASE',
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    reference_type: 'EXPENSE',
+                    reference_id: selectedExpense.id,
+                    created_by: user?.id,
+                  }]);
+              }
             }
           }
         }
       }
 
-      alert('Expense approved successfully! Inventory has been updated.');
+      alert('Expense approved successfully!' + (selectedExpense.category === 'SPAREPART' ? ' Inventory has been updated.' : ''));
       setShowApprovalModal(false);
       setSelectedExpense(null);
       setApprovalComments('');
@@ -585,7 +606,7 @@ export default function Expenses() {
         {!canCreate && (
           <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
             <p className="text-sm text-yellow-200">
-              You don't have permission to create expenses. Only ADMIN and MANAGER can create.
+              You don't have permission to create expenses. Only ADMIN, MANAGER, and ENGINEER can create.
             </p>
           </div>
         )}
@@ -649,8 +670,8 @@ export default function Expenses() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="text-white font-medium">{expense.description}</div>
-                        {expense.purchase_order_id && (
-                          <span className="text-xs text-green-400">🛒 Linked to PO</span>
+                        {expense.supplier && (
+                          <span className="text-xs text-green-400">📦 Supplier: {expense.supplier}</span>
                         )}
                       </td>
                       <td className="py-3 px-4">
@@ -734,32 +755,6 @@ export default function Expenses() {
             <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-white mb-6">Add New Expense</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Purchase Order Selection */}
-                {purchaseOrders.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-white mb-2">
-                      Link to Purchase Order (Optional)
-                    </label>
-                    <select
-                      value={formData.purchase_order_id}
-                      onChange={(e) => handlePOSelection(e.target.value)}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
-                    >
-                      <option value="" className="bg-slate-800 text-white">-- Select Purchase Order or Create Manual --</option>
-                      {purchaseOrders.map((po) => (
-                        <option key={po.id} value={po.id} className="bg-slate-800 text-white">
-                          {po.po_number} - {po.supplier_name} - Rp {po.total_amount.toLocaleString('id-ID')}
-                        </option>
-                      ))}
-                    </select>
-                    {formData.purchase_order_id && (
-                      <p className="text-xs text-green-300 mt-1">
-                        ✓ Expense will be linked to this Purchase Order
-                      </p>
-                    )}
-                  </div>
-                )}
-                
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
                     Category *
@@ -770,35 +765,28 @@ export default function Expenses() {
                     onChange={(e) =>
                       setFormData({ ...formData, category: e.target.value as ExpenseCategory })
                     }
-                    disabled={!!formData.purchase_order_id}
-                    className={`w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 ${
-                      formData.purchase_order_id ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   >
                     <option value="OPERATIONAL" className="bg-slate-800 text-white">Operational</option>
                     <option value="SPAREPART" className="bg-slate-800 text-white">Spare Part</option>
                     <option value="TOOLS" className="bg-slate-800 text-white">Tools</option>
                     <option value="SERVICE" className="bg-slate-800 text-white">Service</option>
                     <option value="SALARY" className="bg-slate-800 text-white">Salary</option>
-                    <option value="PERSONNEL" className="bg-slate-800 text-white">Personnel</option>
+                    <option value="FUEL" className="bg-slate-800 text-white">Fuel</option>
                     <option value="BUSINESS_TRAVEL" className="bg-slate-800 text-white">Business Travel</option>
                     <option value="MARKETING" className="bg-slate-800 text-white">Marketing</option>
                     <option value="OTHER" className="bg-slate-800 text-white">Other</option>
                   </select>
-                  {formData.purchase_order_id && (
-                    <p className="text-xs text-white/70 mt-1">
-                      Category is auto-selected based on Purchase Order items
-                    </p>
-                  )}
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
-                    Resort
+                    Resort {isSparepart && '*'}
                   </label>
                   <select
                     value={formData.resort_id}
                     onChange={(e) => setFormData({ ...formData, resort_id: e.target.value })}
+                    required={isSparepart}
                     className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   >
                     <option value="" className="bg-slate-800 text-white">-- General / Not Resort Specific --</option>
@@ -809,10 +797,139 @@ export default function Expenses() {
                     ))}
                   </select>
                   <p className="text-xs text-white/70 mt-1">
-                    Select resort if this expense is specific to a location
+                    {isSparepart ? 'Required: Select resort for sparepart inventory' : 'Select resort if this expense is specific to a location'}
                   </p>
                 </div>
+
+                {/* Supplier - Only for SPAREPART */}
+                {isSparepart && (
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Supplier *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.supplier}
+                      onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                      placeholder="Enter supplier name"
+                    />
+                  </div>
+                )}
                 
+                {/* Sparepart Items - Only for SPAREPART category */}
+                {isSparepart && (
+                  <div className="border border-purple-500/30 rounded-lg p-4 bg-purple-900/20">
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="block text-sm font-medium text-white">
+                        Sparepart Items *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addSparepartItem}
+                        className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        + Add Item
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {sparepartItems.map((item, index) => (
+                        <div key={item.id} className="bg-purple-800/30 rounded-lg p-3">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs text-white/70">Item #{index + 1}</span>
+                            {sparepartItems.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeSparepartItem(item.id)}
+                                className="text-red-400 hover:text-red-300 text-xs"
+                              >
+                                ✕ Remove
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 gap-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="text"
+                                placeholder="Sparepart Name"
+                                value={item.sparepart_name}
+                                onChange={(e) => updateSparepartItem(item.id, 'sparepart_name', e.target.value)}
+                                className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                              />
+                              <select
+                                value={item.asset_category}
+                                onChange={(e) => updateSparepartItem(item.id, 'asset_category', e.target.value)}
+                                className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                              >
+                                <option value="" className="bg-slate-800">-- Asset Category --</option>
+                                {ASSET_CATEGORIES.map((cat) => (
+                                  <option key={cat} value={cat} className="bg-slate-800">{cat.replace('_', ' ')}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              <div>
+                                <label className="text-xs text-white/70">Qty</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  placeholder="Qty"
+                                  value={item.quantity}
+                                  onChange={(e) => updateSparepartItem(item.id, 'quantity', parseInt(e.target.value) || 0)}
+                                  className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-white/70">Unit</label>
+                                <select
+                                  value={item.unit}
+                                  onChange={(e) => updateSparepartItem(item.id, 'unit', e.target.value)}
+                                  className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                                >
+                                  <option value="pcs" className="bg-slate-800">pcs</option>
+                                  <option value="liter" className="bg-slate-800">liter</option>
+                                  <option value="kg" className="bg-slate-800">kg</option>
+                                  <option value="set" className="bg-slate-800">set</option>
+                                  <option value="box" className="bg-slate-800">box</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-xs text-white/70">Unit Price</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="Price"
+                                  value={item.unit_price}
+                                  onChange={(e) => updateSparepartItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                                  className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-white/70">Total</label>
+                                <div className="px-3 py-2 bg-white/5 border border-white/10 text-white rounded-lg text-sm">
+                                  Rp {item.total_price.toLocaleString('id-ID')}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Total Amount Display */}
+                    <div className="mt-4 pt-3 border-t border-purple-500/30">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-white">Total Amount:</span>
+                        <span className="text-lg font-bold text-green-400">
+                          Rp {sparepartTotal.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
                     Description *
@@ -826,17 +943,21 @@ export default function Expenses() {
                     placeholder="Enter expense description"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">Amount *</label>
-                  <input
-                    type="number"
-                    required
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
-                    placeholder="Enter amount"
-                  />
-                </div>
+
+                {/* Amount field - hidden for SPAREPART since it's calculated */}
+                {!isSparepart && (
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Amount *</label>
+                    <input
+                      type="number"
+                      required
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                      placeholder="Enter amount"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">Date *</label>
                   <input

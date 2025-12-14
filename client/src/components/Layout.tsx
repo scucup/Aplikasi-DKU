@@ -46,6 +46,7 @@ export default function Layout({ children }: LayoutProps) {
       return [
         ...baseNav,
         { name: 'Assets', path: '/assets', icon: '🏍️' },
+        { name: 'Expenses', path: '/expenses', icon: '💰' },
         { name: 'Maintenance', path: '/maintenance', icon: '🔧' },
         { name: 'Spareparts', path: '/spareparts', icon: '⚙️' },
         { name: 'Tools', path: '/tools', icon: '🔨' },
@@ -144,19 +145,19 @@ export default function Layout({ children }: LayoutProps) {
               <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">DKU Adventure</h1>
               
               {/* Desktop Navigation */}
-              <nav className="hidden lg:flex gap-2 ml-6">
+              <nav className="hidden lg:flex gap-1 ml-6">
                 {navigation.map((item) => (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`px-3 py-2 rounded-xl transition-all relative text-sm ${
+                    className={`px-3 py-2 rounded-xl transition-all relative text-xs flex flex-col items-center min-w-[70px] ${
                       isActive(item.path)
                         ? 'bg-purple-600/30 backdrop-blur-sm text-white font-medium border border-purple-500/50'
                         : 'text-white/70 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <span className="mr-2">{item.icon}</span>
-                    {item.name}
+                    <span className="text-lg mb-1">{item.icon}</span>
+                    <span className="text-center leading-tight">{item.name}</span>
                     {item.path === '/expenses' && profile?.role === 'MANAGER' && pendingExpensesCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-neon-pink text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                         {pendingExpensesCount}
@@ -180,16 +181,18 @@ export default function Layout({ children }: LayoutProps) {
               {(profile?.role === 'ADMIN' || profile?.role === 'MANAGER') && (
                 <Link
                   to="/settings"
-                  className="hidden sm:flex px-3 py-2 bg-purple-600/30 text-white rounded-xl border border-purple-500/50 hover:bg-purple-600/50 text-sm"
+                  className="hidden sm:flex flex-col items-center px-3 py-2 bg-purple-600/30 text-white rounded-xl border border-purple-500/50 hover:bg-purple-600/50 text-xs min-w-[60px]"
                 >
-                  ⚙️
+                  <span className="text-lg mb-1">⚙️</span>
+                  <span>Settings</span>
                 </Link>
               )}
               <button
                 onClick={signOut}
-                className="hidden sm:flex px-3 py-2 bg-purple-600/30 text-white rounded-xl border border-purple-500/50 hover:bg-purple-600/50 text-sm"
+                className="hidden sm:flex flex-col items-center px-3 py-2 bg-purple-600/30 text-white rounded-xl border border-purple-500/50 hover:bg-purple-600/50 text-xs min-w-[60px]"
               >
-                🚪
+                <span className="text-lg mb-1">🚪</span>
+                <span>Logout</span>
               </button>
             </div>
           </div>
