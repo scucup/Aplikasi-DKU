@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 
 type AssetCategory = 'ATV' | 'UTV' | 'SEA_SPORT' | 'POOL_TOYS' | 'LINE_SPORT';
@@ -18,10 +19,21 @@ interface InventoryItem {
 }
 
 export default function Spareparts() {
+  const { profile } = useAuth();
+  const isManager = profile?.role === 'MANAGER';
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    sparepart_name: '',
+    current_stock: 0,
+    unit: 'pcs',
+    last_unit_price: 0,
+    last_supplier: '',
+  });
 
   const assetCategories: { value: string; label: string }[] = [
     { value: 'ALL', label: 'All Categories' },
@@ -92,6 +104,115 @@ export default function Spareparts() {
   const outOfStock = inventory.filter((i) => i.current_stock === 0).length;
   const lowStock = inventory.filter((i) => i.current_stock > 0 && i.current_stock <= 5).length;
   const totalValue = inventory.reduce((sum, i) => sum + i.current_stock * i.last_unit_price, 0);
+
+  // Handle Edit
+  const handleEdit = (item: InventoryItem) => {
+    setEditingItem(item);
+    setEditFormData({
+      sparepart_name: item.sparepart_name,
+      current_stock: item.current_stock,
+      unit: item.unit,
+      last_unit_price: item.last_unit_price,
+      last_supplier: item.last_supplier || '',
+    });
+    setShowEditModal(true);
+  };
+
+  // Handle Update
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingItem) return;
+
+    try {
+      const { error } = await supabase
+        .from('sparepart_inventory')
+        .update({
+          sparepart_name: editFormData.sparepart_name,
+          current_stock: editFormData.current_stock,
+          unit: editFormData.unit,
+          last_unit_price: editFormData.last_unit_price,
+          last_supplier: editFormData.last_supplier || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingItem.id);
+
+      if (error) throw error;
+
+      setShowEditModal(false);
+      setEditingItem(null);
+      fetchInventory();
+      alert('Sparepart updated successfully!');
+    } catch (error: any) {
+      alert('Error updating sparepart: ' + error.message);
+    }
+  };
+
+  // Handle Delete
+  const handleDelete = async (item: InventoryItem) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${item.sparepart_name}"?\n\n⚠️ This will also delete related expense records.\n\nThis action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      // Find related expense IDs from stock transactions
+      const { data: transactions } = await supabase
+        .from('stock_transactions')
+        .select('reference_id, reference_type')
+        .eq('inventory_id', item.id)
+        .eq('reference_type', 'EXPENSE');
+
+      const expenseIds = transactions?.map((t) => t.reference_id) || [];
+
+      // Delete related stock transactions
+      await supabase.from('stock_transactions').delete().eq('inventory_id', item.id);
+
+      // Delete expense_spareparts related to this inventory
+      const { data: expenseSpareparts } = await supabase
+        .from('expense_spareparts')
+        .select('expense_id')
+        .eq('sparepart_name', item.sparepart_name)
+        .eq('asset_category', item.asset_category);
+
+      // Delete expense_spareparts
+      await supabase
+        .from('expense_spareparts')
+        .delete()
+        .eq('sparepart_name', item.sparepart_name)
+        .eq('asset_category', item.asset_category);
+
+      // Delete related expenses if they have no more sparepart items
+      if (expenseSpareparts && expenseSpareparts.length > 0) {
+        for (const es of expenseSpareparts) {
+          // Check if expense has other sparepart items
+          const { data: remainingItems } = await supabase
+            .from('expense_spareparts')
+            .select('id')
+            .eq('expense_id', es.expense_id);
+
+          // If no remaining items, delete the expense
+          if (!remainingItems || remainingItems.length === 0) {
+            await supabase.from('expenses').delete().eq('id', es.expense_id);
+          }
+        }
+      }
+
+      // Delete the inventory item
+      const { error } = await supabase.from('sparepart_inventory').delete().eq('id', item.id);
+
+      if (error) throw error;
+
+      fetchInventory();
+      alert(
+        `Sparepart "${item.sparepart_name}" deleted successfully!\n\n✅ Related expense records have been cleaned up.`
+      );
+    } catch (error: any) {
+      alert('Error deleting sparepart: ' + error.message);
+    }
+  };
 
   return (
     <Layout>
@@ -180,6 +301,7 @@ export default function Spareparts() {
                     <th className="text-right py-3 px-4 text-white/90 font-semibold">Last Price</th>
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">Last Supplier</th>
                     <th className="text-center py-3 px-4 text-white/90 font-semibold">Status</th>
+                    {isManager && <th className="text-center py-3 px-4 text-white/90 font-semibold">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -208,11 +330,29 @@ export default function Spareparts() {
                           {getStockStatusLabel(item.current_stock)}
                         </span>
                       </td>
+                      {isManager && (
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleEdit(item)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(item)}
+                              className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {filteredInventory.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-white/50">
+                      <td colSpan={isManager ? 9 : 8} className="py-12 text-center text-white/50">
                         <div className="flex flex-col items-center gap-2">
                           <span className="text-4xl">📦</span>
                           <p>No inventory data available</p>
@@ -225,6 +365,92 @@ export default function Spareparts() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {showEditModal && editingItem && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30">
+              <h2 className="text-2xl font-bold text-white mb-6">Edit Sparepart</h2>
+              <form onSubmit={handleUpdate} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Sparepart Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.sparepart_name}
+                    onChange={(e) => setEditFormData({ ...editFormData, sparepart_name: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Stock *</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={editFormData.current_stock}
+                      onChange={(e) => setEditFormData({ ...editFormData, current_stock: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Unit *</label>
+                    <select
+                      value={editFormData.unit}
+                      onChange={(e) => setEditFormData({ ...editFormData, unit: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    >
+                      <option value="pcs" className="bg-slate-800">pcs</option>
+                      <option value="liter" className="bg-slate-800">liter</option>
+                      <option value="kg" className="bg-slate-800">kg</option>
+                      <option value="set" className="bg-slate-800">set</option>
+                      <option value="box" className="bg-slate-800">box</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Unit Price *</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={editFormData.last_unit_price}
+                    onChange={(e) => setEditFormData({ ...editFormData, last_unit_price: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Supplier</label>
+                  <input
+                    type="text"
+                    value={editFormData.last_supplier}
+                    onChange={(e) => setEditFormData({ ...editFormData, last_supplier: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingItem(null);
+                    }}
+                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors font-semibold"
+                  >
+                    Update
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

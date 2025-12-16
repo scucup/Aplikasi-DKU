@@ -52,8 +52,10 @@ export default function Expenses() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [approvalComments, setApprovalComments] = useState('');
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [filterStatus, setFilterStatus] = useState<'ALL' | ApprovalStatus>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -61,6 +63,7 @@ export default function Expenses() {
   
   const canCreate = profile?.role === 'ADMIN' || profile?.role === 'MANAGER' || profile?.role === 'ENGINEER';
   const canApprove = profile?.role === 'MANAGER';
+  const canDelete = profile?.role === 'MANAGER';
   
   const [formData, setFormData] = useState({
     category: 'OPERATIONAL' as ExpenseCategory,
@@ -324,6 +327,158 @@ export default function Expenses() {
     setSelectedExpense(expense);
     setApprovalComments('');
     setShowApprovalModal(true);
+  };
+
+  // Check if user can edit this expense
+  const canEditExpense = (expense: Expense) => {
+    // Only PENDING expenses can be edited
+    if (expense.status !== 'PENDING') return false;
+    // Owner can edit their own expense, or Manager can edit any
+    return expense.submitted_by === user?.id || profile?.role === 'MANAGER';
+  };
+
+  // Handle edit expense
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setFormData({
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount.toString(),
+      date: expense.date,
+      resort_id: expense.resort_id || '',
+      supplier: expense.supplier || '',
+    });
+    setShowEditModal(true);
+  };
+
+  // Handle update expense
+  const handleUpdateExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpense) return;
+
+    try {
+      const finalAmount = formData.category === 'SPAREPART' ? sparepartTotal : parseFloat(formData.amount);
+
+      const { error } = await supabase
+        .from('expenses')
+        .update({
+          category: formData.category,
+          description: formData.description,
+          amount: finalAmount,
+          date: formData.date,
+          resort_id: formData.resort_id || null,
+          supplier: formData.category === 'SPAREPART' ? formData.supplier : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingExpense.id);
+
+      if (error) throw error;
+
+      setShowEditModal(false);
+      setEditingExpense(null);
+      setFormData({
+        category: 'OPERATIONAL',
+        description: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        resort_id: '',
+        supplier: '',
+      });
+      fetchExpenses();
+      alert('Expense updated successfully!');
+    } catch (error: any) {
+      alert('Error updating expense: ' + error.message);
+    }
+  };
+
+  // Handle delete expense (Manager only)
+  const handleDeleteExpense = async (expense: Expense) => {
+    if (!canDelete) {
+      alert('Only Manager can delete expenses');
+      return;
+    }
+
+    const isSparepart = expense.category === 'SPAREPART';
+    const confirmMsg = isSparepart
+      ? `Are you sure you want to delete this SPAREPART expense?\n\nDescription: ${expense.description}\nAmount: Rp ${expense.amount.toLocaleString('id-ID')}\n\n⚠️ This will also delete related inventory items and stock transactions.`
+      : `Are you sure you want to delete this expense?\n\nDescription: ${expense.description}\nAmount: Rp ${expense.amount.toLocaleString('id-ID')}`;
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    try {
+      // For SPAREPART expenses, delete related inventory and transactions
+      if (isSparepart && expense.status === 'APPROVED') {
+        // Get expense sparepart items
+        const { data: sparepartItems } = await supabase
+          .from('expense_spareparts')
+          .select('sparepart_name, asset_category, quantity')
+          .eq('expense_id', expense.id);
+
+        if (sparepartItems && sparepartItems.length > 0) {
+          for (const item of sparepartItems) {
+            // Find inventory record
+            const { data: inventory } = await supabase
+              .from('sparepart_inventory')
+              .select('id, current_stock')
+              .eq('sparepart_name', item.sparepart_name)
+              .eq('asset_category', item.asset_category)
+              .eq('resort_id', expense.resort_id)
+              .maybeSingle();
+
+            if (inventory) {
+              // Reduce stock (reverse the purchase)
+              const newStock = inventory.current_stock - item.quantity;
+
+              if (newStock <= 0) {
+                // Delete stock transactions first
+                await supabase
+                  .from('stock_transactions')
+                  .delete()
+                  .eq('inventory_id', inventory.id);
+
+                // Delete inventory if stock becomes 0 or negative
+                await supabase.from('sparepart_inventory').delete().eq('id', inventory.id);
+              } else {
+                // Update stock
+                await supabase
+                  .from('sparepart_inventory')
+                  .update({
+                    current_stock: newStock,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', inventory.id);
+
+                // Delete stock transaction for this expense
+                await supabase
+                  .from('stock_transactions')
+                  .delete()
+                  .eq('reference_type', 'EXPENSE')
+                  .eq('reference_id', expense.id);
+              }
+            }
+          }
+        }
+      }
+
+      // Delete expense_spareparts first if exists
+      await supabase.from('expense_spareparts').delete().eq('expense_id', expense.id);
+
+      // Delete the expense
+      const { error } = await supabase.from('expenses').delete().eq('id', expense.id);
+
+      if (error) throw error;
+
+      fetchExpenses();
+      alert(
+        isSparepart && expense.status === 'APPROVED'
+          ? 'Expense deleted successfully!\n\n✅ Related inventory has been updated.'
+          : 'Expense deleted successfully!'
+      );
+    } catch (error: any) {
+      alert('Error deleting expense: ' + error.message);
+    }
   };
 
   const handleApprove = async () => {
@@ -628,7 +783,7 @@ export default function Expenses() {
                     <th className="text-right py-3 px-4 text-white/90 font-semibold">Amount</th>
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">Submitted By</th>
                     <th className="text-center py-3 px-4 text-white/90 font-semibold">Status</th>
-                    {canApprove && <th className="text-center py-3 px-4 text-white/90 font-semibold">Action</th>}
+                    <th className="text-center py-3 px-4 text-white/90 font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -698,9 +853,20 @@ export default function Expenses() {
                           {expense.status}
                         </span>
                       </td>
-                      {canApprove && (
-                        <td className="py-3 px-4 text-center">
-                          {expense.status === 'PENDING' && (
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          {/* Edit button - owner can edit PENDING, Manager can edit any PENDING */}
+                          {canEditExpense(expense) && (
+                            <button
+                              onClick={() => handleEditExpense(expense)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
+                              title="Edit Expense"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {/* Review button - Manager only for PENDING */}
+                          {canApprove && expense.status === 'PENDING' && (
                             <button
                               onClick={() => handleApprovalAction(expense)}
                               className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium"
@@ -708,8 +874,18 @@ export default function Expenses() {
                               Review
                             </button>
                           )}
-                        </td>
-                      )}
+                          {/* Delete button - Manager only */}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDeleteExpense(expense)}
+                              className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium"
+                              title="Delete Expense"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {expenses.filter((expense) => {
@@ -738,7 +914,7 @@ export default function Expenses() {
                     return matchesStatus && matchesSearch && matchesDate;
                   }).length === 0 && (
                     <tr>
-                      <td colSpan={canApprove ? 8 : 7} className="py-8 text-center text-white/50">
+                      <td colSpan={8} className="py-8 text-center text-white/50">
                         {searchTerm || startDate || endDate ? 'No expenses match your filters' : 'No expenses available'}
                       </td>
                     </tr>
@@ -1072,6 +1248,122 @@ export default function Expenses() {
                   Approve
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Expense Modal */}
+        {showEditModal && editingExpense && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30 max-h-[90vh] overflow-y-auto">
+              <h2 className="text-2xl font-bold text-white mb-6">Edit Expense</h2>
+              <form onSubmit={handleUpdateExpense} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Category *
+                  </label>
+                  <select
+                    required
+                    value={formData.category}
+                    onChange={(e) =>
+                      setFormData({ ...formData, category: e.target.value as ExpenseCategory })
+                    }
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
+                  >
+                    <option value="OPERATIONAL" className="bg-slate-800 text-white">Operational</option>
+                    <option value="SPAREPART" className="bg-slate-800 text-white">Spare Part</option>
+                    <option value="TOOLS" className="bg-slate-800 text-white">Tools</option>
+                    <option value="SERVICE" className="bg-slate-800 text-white">Service</option>
+                    <option value="SALARY" className="bg-slate-800 text-white">Salary</option>
+                    <option value="FUEL" className="bg-slate-800 text-white">Fuel</option>
+                    <option value="BUSINESS_TRAVEL" className="bg-slate-800 text-white">Business Travel</option>
+                    <option value="MARKETING" className="bg-slate-800 text-white">Marketing</option>
+                    <option value="OTHER" className="bg-slate-800 text-white">Other</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Resort
+                  </label>
+                  <select
+                    value={formData.resort_id}
+                    onChange={(e) => setFormData({ ...formData, resort_id: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
+                  >
+                    <option value="" className="bg-slate-800 text-white">-- General / Not Resort Specific --</option>
+                    {resorts.map((resort) => (
+                      <option key={resort.id} value={resort.id} className="bg-slate-800 text-white">
+                        {resort.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Description *
+                  </label>
+                  <textarea
+                    required
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                    placeholder="Enter expense description"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Amount *</label>
+                  <input
+                    type="number"
+                    required
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                    placeholder="Enter amount"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
+                  />
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingExpense(null);
+                      setFormData({
+                        category: 'OPERATIONAL',
+                        description: '',
+                        amount: '',
+                        date: new Date().toISOString().split('T')[0],
+                        resort_id: '',
+                        supplier: '',
+                      });
+                    }}
+                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors font-semibold"
+                  >
+                    Update
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

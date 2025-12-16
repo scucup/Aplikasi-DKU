@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { Tool, ToolCondition, Resort } from '../types';
 import { Plus, Search, Wrench, AlertTriangle, CheckCircle, XCircle, Edit2, Trash2 } from 'lucide-react';
 import AddToolModal from '../components/AddToolModal';
@@ -8,6 +9,8 @@ import Layout from '../components/Layout';
 
 export default function Tools() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const isManager = profile?.role === 'MANAGER';
   const [tools, setTools] = useState<Tool[]>([]);
   const [resorts, setResorts] = useState<Resort[]>([]);
   const [loading, setLoading] = useState(true);
@@ -326,16 +329,18 @@ export default function Tools() {
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(tool.id, tool.name);
-                      }}
-                      className="text-red-400 hover:text-red-300"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {isManager && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(tool.id, tool.name);
+                        }}
+                        className="text-red-400 hover:text-red-300"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

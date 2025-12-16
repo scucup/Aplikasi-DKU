@@ -68,6 +68,17 @@ export default function Maintenance() {
   });
 
   const canCreate = profile?.role === 'ENGINEER' || profile?.role === 'MANAGER';
+  const isManager = profile?.role === 'MANAGER';
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    type: 'PREVENTIVE' as MaintenanceType,
+    description: '',
+    start_date: '',
+    start_time: '',
+    end_date: '',
+    end_time: '',
+  });
 
   useEffect(() => {
     fetchRecords();
@@ -155,6 +166,123 @@ export default function Maintenance() {
       console.error('Error fetching maintenance records:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle Edit Maintenance
+  const handleEditMaintenance = (record: MaintenanceRecord) => {
+    // Database stores date as string (YYYY-MM-DD format)
+    setEditingRecord(record);
+    setEditFormData({
+      type: record.type,
+      description: record.description,
+      start_date: record.start_date.split('T')[0],
+      start_time: '08:00',
+      end_date: record.end_date ? record.end_date.split('T')[0] : '',
+      end_time: record.end_date ? '17:00' : '',
+    });
+    setShowEditModal(true);
+  };
+
+  // Handle Update Maintenance
+  const handleUpdateMaintenance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRecord) return;
+
+    try {
+      // Database columns are date type, not timestamp
+      const { error } = await supabase
+        .from('maintenance_records')
+        .update({
+          type: editFormData.type,
+          maintenance_type: editFormData.type,
+          description: editFormData.description,
+          start_date: editFormData.start_date,
+          end_date: editFormData.end_date || null,
+          status: editFormData.end_date ? 'COMPLETED' : 'IN_PROGRESS',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingRecord.id);
+
+      if (error) throw error;
+
+      setShowEditModal(false);
+      setEditingRecord(null);
+      fetchRecords();
+      alert('Maintenance record updated successfully!');
+    } catch (error: any) {
+      alert('Error updating maintenance record: ' + error.message);
+    }
+  };
+
+  // Handle Delete Maintenance
+  const handleDeleteMaintenance = async (record: MaintenanceRecord) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete this maintenance record?\n\nAsset: ${record.asset?.name}\nDescription: ${record.description}\n\n⚠️ Spareparts used will be returned to inventory.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      // Get stock transactions for this maintenance to restore inventory
+      const { data: transactions } = await supabase
+        .from('stock_transactions')
+        .select('inventory_id, quantity')
+        .eq('reference_type', 'MAINTENANCE')
+        .eq('reference_id', record.id);
+
+      // Restore inventory stock (quantity in transactions is negative for USAGE)
+      if (transactions && transactions.length > 0) {
+        for (const tx of transactions) {
+          // Get current inventory
+          const { data: inventory } = await supabase
+            .from('sparepart_inventory')
+            .select('current_stock')
+            .eq('id', tx.inventory_id)
+            .single();
+
+          if (inventory) {
+            // Restore stock (subtract negative quantity = add back)
+            await supabase
+              .from('sparepart_inventory')
+              .update({
+                current_stock: inventory.current_stock - tx.quantity,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', tx.inventory_id);
+          }
+        }
+
+        // Delete stock transactions
+        await supabase
+          .from('stock_transactions')
+          .delete()
+          .eq('reference_type', 'MAINTENANCE')
+          .eq('reference_id', record.id);
+      }
+
+      // Delete maintenance_spareparts
+      await supabase
+        .from('maintenance_spareparts')
+        .delete()
+        .eq('maintenance_record_id', record.id);
+
+      // Delete the maintenance record
+      const { error } = await supabase
+        .from('maintenance_records')
+        .delete()
+        .eq('id', record.id);
+
+      if (error) throw error;
+
+      fetchRecords();
+      alert(
+        'Maintenance record deleted successfully!\n\n✅ Spareparts have been returned to inventory.'
+      );
+    } catch (error: any) {
+      alert('Error deleting maintenance record: ' + error.message);
     }
   };
 
@@ -335,6 +463,7 @@ export default function Maintenance() {
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">End Date</th>
                     <th className="text-right py-3 px-4 text-white/90 font-semibold">Sparepart Cost</th>
                     <th className="text-right py-3 px-4 text-white/90 font-semibold">Total Cost</th>
+                    {isManager && <th className="text-center py-3 px-4 text-white/90 font-semibold">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -417,6 +546,24 @@ export default function Maintenance() {
                           Rp {(record.labor_cost + record.sparepart_cost).toLocaleString('id-ID')}
                         </span>
                       </td>
+                      {isManager && (
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleEditMaintenance(record)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMaintenance(record)}
+                              className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {records.filter((record) => {
@@ -440,7 +587,7 @@ export default function Maintenance() {
                     return matchesSearch && matchesDate;
                   }).length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-white/50">
+                      <td colSpan={isManager ? 8 : 7} className="py-8 text-center text-white/50">
                         {searchTerm || startDate || endDate ? 'No maintenance records match your filters' : 'No maintenance records available'}
                       </td>
                     </tr>
@@ -796,6 +943,105 @@ export default function Maintenance() {
                     className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
                   >
                     Create
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Maintenance Modal */}
+        {showEditModal && editingRecord && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30">
+              <h2 className="text-2xl font-bold text-white mb-6">Edit Maintenance Record</h2>
+              <form onSubmit={handleUpdateMaintenance} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Asset</label>
+                  <div className="px-4 py-2 bg-white/5 border border-white/10 text-white/70 rounded-lg">
+                    {editingRecord.asset?.name || 'Unknown Asset'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Type *</label>
+                  <select
+                    required
+                    value={editFormData.type}
+                    onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value as MaintenanceType })}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                  >
+                    <option value="PREVENTIVE" className="bg-slate-800">Preventive</option>
+                    <option value="CORRECTIVE" className="bg-slate-800">Corrective</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Description *</label>
+                  <textarea
+                    required
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Start Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={editFormData.start_date}
+                      onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Start Time *</label>
+                    <input
+                      type="time"
+                      required
+                      value={editFormData.start_time}
+                      onChange={(e) => setEditFormData({ ...editFormData, start_time: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">End Date</label>
+                    <input
+                      type="date"
+                      value={editFormData.end_date}
+                      onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">End Time</label>
+                    <input
+                      type="time"
+                      value={editFormData.end_time}
+                      onChange={(e) => setEditFormData({ ...editFormData, end_time: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingRecord(null);
+                    }}
+                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors font-semibold"
+                  >
+                    Update
                   </button>
                 </div>
               </form>
