@@ -161,12 +161,31 @@ export default function Invoices() {
     }
   };
 
-  const generateInvoiceNumber = () => {
+  const generateInvoiceNumber = async (): Promise<string> => {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    return `INV-${year}${month}-${random}`;
+    const prefix = `INV-${year}${month}-`;
+    
+    // Get the last invoice number for this month
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('invoice_number')
+      .like('invoice_number', `${prefix}%`)
+      .order('invoice_number', { ascending: false })
+      .limit(1);
+    
+    let nextNumber = 1;
+    if (!error && data && data.length > 0) {
+      // Extract the sequential number from the last invoice
+      const lastNumber = data[0].invoice_number;
+      const lastSeq = parseInt(lastNumber.split('-')[2], 10);
+      if (!isNaN(lastSeq)) {
+        nextNumber = lastSeq + 1;
+      }
+    }
+    
+    return `${prefix}${String(nextNumber).padStart(4, '0')}`;
   };
 
   const calculateInvoiceData = async (resortId: string, startDate: string, endDate: string) => {
@@ -249,7 +268,7 @@ export default function Invoices() {
       }
 
       const invoiceId = crypto.randomUUID();
-      const invoiceNumber = generateInvoiceNumber();
+      const invoiceNumber = await generateInvoiceNumber();
 
       // Create invoice
       const { error: invoiceError } = await supabase.from('invoices').insert([{

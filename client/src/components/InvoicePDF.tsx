@@ -262,12 +262,14 @@ export const generateInvoicePDF = async (
   
   // Bank account details
   doc.setTextColor(0, 0, 0);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
   let bankY = finalY + 5;
   
   doc.text('Please to be paid to our account as below:', leftCol, bankY);
-  bankY += 6;
+  bankY += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
   doc.text('Name of Bank', leftCol, bankY);
   doc.text(`: ${bankAccount.bank_name}`, leftCol + 40, bankY);
   bankY += 5;
@@ -300,8 +302,8 @@ export const generateInvoicePDF = async (
   doc.setFont('helvetica', 'bold');
   doc.text(bankAccount.account_holder_name.toUpperCase(), pageWidth - 60, bankY);
   
-  // Signature space (empty space for manual signature after print)
-  bankY += 25; // Space for signature
+  // Signature space (empty space for manual signature and stamp after print)
+  bankY += 35; // Space for signature and stamp
   
   // Name below signature space
   doc.setFont('helvetica', 'bold');
