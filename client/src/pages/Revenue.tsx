@@ -14,6 +14,7 @@ interface RevenueRecord {
   amount: number;
   discount: number;
   discount_percentage: number;
+  discount_type: 'PERCENTAGE' | 'FIXED_AMOUNT';
   tax_service: number;
   tax_service_percentage: number;
   tax_service_type: 'PERCENTAGE' | 'FIXED_AMOUNT';
@@ -32,6 +33,8 @@ export default function Revenue() {
   const [showModal, setShowModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<RevenueRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedResort, setSelectedResort] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [formData, setFormData] = useState({
@@ -40,7 +43,8 @@ export default function Revenue() {
     date: new Date().toISOString().split('T')[0],
     billing_no: '',
     amount: '',
-    discount_percentage: '',
+    discount_type: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED_AMOUNT',
+    discount_value: '',
     tax_service_type: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED_AMOUNT',
     tax_service_value: '',
   });
@@ -132,13 +136,19 @@ export default function Revenue() {
       ? (record.tax_service_percentage?.toString() || '')
       : (record.tax_service?.toString() || '');
     
+    const discountType = record.discount_type || 'PERCENTAGE';
+    const discountValue = discountType === 'PERCENTAGE'
+      ? (record.discount_percentage?.toString() || '')
+      : (record.discount?.toString() || '');
+    
     setFormData({
       resort_id: record.resort_id,
       asset_category: record.asset_category,
       date: record.date,
       billing_no: record.billing_no || '',
       amount: record.amount.toString(),
-      discount_percentage: record.discount_percentage?.toString() || '',
+      discount_type: discountType,
+      discount_value: discountValue,
       tax_service_type: taxServiceType,
       tax_service_value: taxServiceValue,
     });
@@ -166,8 +176,23 @@ export default function Revenue() {
     e.preventDefault();
     try {
       const amount = parseFloat(formData.amount);
-      const discountPercentage = formData.discount_percentage ? parseFloat(formData.discount_percentage) : 0;
-      const discountAmount = (amount * discountPercentage) / 100;
+      
+      // Calculate discount based on type
+      let discountAmount = 0;
+      let discountPercentage = 0;
+      
+      if (formData.discount_value) {
+        const discountValue = parseFloat(formData.discount_value);
+        if (formData.discount_type === 'PERCENTAGE') {
+          discountPercentage = discountValue;
+          discountAmount = (amount * discountValue) / 100;
+        } else {
+          // FIXED_AMOUNT
+          discountAmount = discountValue;
+          discountPercentage = amount > 0 ? (discountValue / amount) * 100 : 0;
+        }
+      }
+      
       const amountAfterDiscount = amount - discountAmount;
       
       // Calculate tax & service based on type
@@ -192,6 +217,7 @@ export default function Revenue() {
         date: formData.date,
         billing_no: formData.billing_no || null,
         amount: amount,
+        discount_type: formData.discount_type,
         discount_percentage: discountPercentage,
         discount: discountAmount,
         tax_service_type: formData.tax_service_type,
@@ -228,7 +254,8 @@ export default function Revenue() {
         date: new Date().toISOString().split('T')[0],
         billing_no: '',
         amount: '',
-        discount_percentage: '',
+        discount_type: 'PERCENTAGE',
+        discount_value: '',
         tax_service_type: 'PERCENTAGE',
         tax_service_value: '',
       });
@@ -248,31 +275,60 @@ export default function Revenue() {
       date: new Date().toISOString().split('T')[0],
       billing_no: '',
       amount: '',
-      discount_percentage: '',
+      discount_type: 'PERCENTAGE',
+      discount_value: '',
       tax_service_type: 'PERCENTAGE',
       tax_service_value: '',
     });
     setAvailableCategories([]);
   };
 
-  const totalRevenue = records.reduce((sum, record) => sum + Number(record.amount), 0);
-  const totalDkuShare = records.reduce((sum, record) => sum + (record.dku_share || 0), 0);
+  // Filter function to be used for both table and summary
+  const filterRecords = (record: RevenueRecord) => {
+    const billingNo = record.billing_no || '';
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = billingNo.toLowerCase().includes(search);
+    
+    // Resort filtering
+    const matchesResort = selectedResort === 'all' || record.resort_id === selectedResort;
+    
+    // Category filtering
+    const matchesCategory = selectedCategory === 'all' || record.asset_category === selectedCategory;
+    
+    // Date filtering
+    let matchesDate = true;
+    if (startDate || endDate) {
+      const recordDate = new Date(record.date);
+      if (startDate) {
+        matchesDate = matchesDate && recordDate >= new Date(startDate);
+      }
+      if (endDate) {
+        matchesDate = matchesDate && recordDate <= new Date(endDate);
+      }
+    }
+    
+    return matchesSearch && matchesResort && matchesCategory && matchesDate;
+  };
+
+  // Get filtered records
+  const filteredRecords = records.filter(filterRecords);
+
+  // Calculate totals based on filtered records
+  const totalRevenue = filteredRecords.reduce((sum, record) => sum + Number(record.amount), 0);
+  const totalNetAmount = filteredRecords.reduce((sum, record) => {
+    const netAmount = Number(record.amount) - (Number(record.discount) || 0) - (Number(record.tax_service) || 0);
+    return sum + netAmount;
+  }, 0);
+  const totalDkuShare = filteredRecords.reduce((sum, record) => sum + (record.dku_share || 0), 0);
+
+  // Check if any filter is active
+  const isFilterActive = searchTerm || selectedResort !== 'all' || selectedCategory !== 'all' || startDate || endDate;
 
   return (
     <Layout>
       <div className="max-w-7xl mx-auto p-8">
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white">Revenue Records</h1>
-            <div className="flex gap-6 mt-2">
-              <p className="text-lg text-white/70">
-                Total Revenue: <span className="text-neon-green font-bold">Rp {totalRevenue.toLocaleString('id-ID')}</span>
-              </p>
-              <p className="text-lg text-white/70">
-                Total DKU Share: <span className="text-green-400 font-bold">Rp {totalDkuShare.toLocaleString('id-ID')}</span>
-              </p>
-            </div>
-          </div>
+          <h1 className="text-3xl font-bold text-white">Revenue Records</h1>
           {canCreate && (
             <button
               onClick={() => setShowModal(true)}
@@ -281,6 +337,43 @@ export default function Revenue() {
               + Add Revenue
             </button>
           )}
+        </div>
+
+        {/* Statistics Cards - same style as Expenses */}
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-purple-900/30 backdrop-blur-sm rounded-xl p-4 border border-purple-500/30">
+            <div className="text-sm text-purple-200 font-medium mb-1">
+              Total Revenue {isFilterActive && <span className="text-yellow-300">(Filtered)</span>}
+            </div>
+            <div className="text-2xl font-bold text-white">
+              Rp {totalRevenue.toLocaleString('id-ID')}
+            </div>
+            <div className="text-xs text-purple-300 mt-1">
+              {filteredRecords.length} records {isFilterActive && `of ${records.length}`}
+            </div>
+          </div>
+          <div className="bg-blue-900/30 backdrop-blur-sm rounded-xl p-4 border border-blue-500/30">
+            <div className="text-sm text-blue-200 font-medium mb-1">
+              Total Net Amount {isFilterActive && <span className="text-yellow-300">(Filtered)</span>}
+            </div>
+            <div className="text-2xl font-bold text-white">
+              Rp {totalNetAmount.toLocaleString('id-ID')}
+            </div>
+            <div className="text-xs text-blue-300 mt-1">
+              After discount & tax
+            </div>
+          </div>
+          <div className="bg-green-900/30 backdrop-blur-sm rounded-xl p-4 border border-green-500/30">
+            <div className="text-sm text-green-200 font-medium mb-1">
+              Total DKU Share {isFilterActive && <span className="text-yellow-300">(Filtered)</span>}
+            </div>
+            <div className="text-2xl font-bold text-white">
+              Rp {totalDkuShare.toLocaleString('id-ID')}
+            </div>
+            <div className="text-xs text-green-300 mt-1">
+              Profit sharing
+            </div>
+          </div>
         </div>
 
         {!canCreate && (
@@ -297,36 +390,60 @@ export default function Revenue() {
           </div>
         ) : (
           <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
-            {/* Search and Date Filter */}
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative md:col-span-1">
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search by resort, category, or billing..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
+            {/* Filters - same style as Assets page */}
+            <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-purple-500/20 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search billing no..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <select
+                  value={selectedResort}
+                  onChange={(e) => setSelectedResort(e.target.value)}
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="all">All Resorts</option>
+                  {resorts.map(resort => (
+                    <option key={resort.id} value={resort.id}>{resort.name}</option>
+                  ))}
+                </select>
+                
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="ATV">ATV</option>
+                  <option value="UTV">UTV</option>
+                  <option value="SEA_SPORT">Sea Sport</option>
+                  <option value="POOL_TOYS">Pool Toys</option>
+                  <option value="LINE_SPORT">Line Sport</option>
+                </select>
+                
                 <input
                   type="date"
                   placeholder="Start Date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
-              </div>
-              <div>
+                
                 <input
                   type="date"
                   placeholder="End Date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -348,31 +465,7 @@ export default function Revenue() {
                   </tr>
                 </thead>
                 <tbody>
-                  {records
-                    .filter((record) => {
-                      const resortName = (record as any).resort?.name || '';
-                      const category = record.asset_category || '';
-                      const billingNo = record.billing_no || '';
-                      const search = searchTerm.toLowerCase();
-                      const matchesSearch = resortName.toLowerCase().includes(search) ||
-                                          category.toLowerCase().includes(search) ||
-                                          billingNo.toLowerCase().includes(search);
-                      
-                      // Date filtering
-                      let matchesDate = true;
-                      if (startDate || endDate) {
-                        const recordDate = new Date(record.date);
-                        if (startDate) {
-                          matchesDate = matchesDate && recordDate >= new Date(startDate);
-                        }
-                        if (endDate) {
-                          matchesDate = matchesDate && recordDate <= new Date(endDate);
-                        }
-                      }
-                      
-                      return matchesSearch && matchesDate;
-                    })
-                    .map((record) => {
+                  {filteredRecords.map((record) => {
                     const discountPercentage = Number(record.discount_percentage) || 0;
                     const discount = Number(record.discount) || 0;
                     const taxServicePercentage = Number(record.tax_service_percentage) || 0;
@@ -476,31 +569,12 @@ export default function Revenue() {
                       </tr>
                     );
                   })}
-                  {records.filter((record) => {
-                    const resortName = (record as any).resort?.name || '';
-                    const category = record.asset_category || '';
-                    const billingNo = record.billing_no || '';
-                    const search = searchTerm.toLowerCase();
-                    const matchesSearch = resortName.toLowerCase().includes(search) ||
-                                        category.toLowerCase().includes(search) ||
-                                        billingNo.toLowerCase().includes(search);
-                    
-                    let matchesDate = true;
-                    if (startDate || endDate) {
-                      const recordDate = new Date(record.date);
-                      if (startDate) {
-                        matchesDate = matchesDate && recordDate >= new Date(startDate);
-                      }
-                      if (endDate) {
-                        matchesDate = matchesDate && recordDate <= new Date(endDate);
-                      }
-                    }
-                    
-                    return matchesSearch && matchesDate;
-                  }).length === 0 && (
+                  {filteredRecords.length === 0 && (
                     <tr>
                       <td colSpan={canCreate ? 10 : 9} className="py-8 text-center text-white/50">
-                        {searchTerm || startDate || endDate ? 'No revenue records match your filters' : 'No revenue records available'}
+                        {isFilterActive 
+                          ? 'No revenue records match your filters' 
+                          : 'No revenue records available'}
                       </td>
                     </tr>
                   )}
@@ -607,20 +681,46 @@ export default function Revenue() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-white/90 mb-1">
-                    Discount % <span className="text-white/60 text-xs">(Optional - for low season)</span>
+                    Discount <span className="text-white/60 text-xs">(Optional)</span>
                   </label>
+                  <div className="flex gap-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, discount_type: 'PERCENTAGE', discount_value: '' })}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        formData.discount_type === 'PERCENTAGE'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-purple-800/30 text-white/60 hover:bg-purple-800/50'
+                      }`}
+                    >
+                      Percentage (%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, discount_type: 'FIXED_AMOUNT', discount_value: '' })}
+                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        formData.discount_type === 'FIXED_AMOUNT'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-purple-800/30 text-white/60 hover:bg-purple-800/50'
+                      }`}
+                    >
+                      Fixed Amount (Rp)
+                    </button>
+                  </div>
                   <div className="relative">
                     <input
                       type="number"
                       min="0"
-                      max="100"
-                      step="0.1"
-                      value={formData.discount_percentage}
-                      onChange={(e) => setFormData({ ...formData, discount_percentage: e.target.value })}
-                      className="w-full px-4 py-2 pr-10 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
-                      placeholder="Enter discount percentage"
+                      max={formData.discount_type === 'PERCENTAGE' ? '100' : undefined}
+                      step="0.01"
+                      value={formData.discount_value}
+                      onChange={(e) => setFormData({ ...formData, discount_value: e.target.value })}
+                      className="w-full px-4 py-2 pr-12 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                      placeholder={formData.discount_type === 'PERCENTAGE' ? 'Enter percentage' : 'Enter amount'}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60">%</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60">
+                      {formData.discount_type === 'PERCENTAGE' ? '%' : 'Rp'}
+                    </span>
                   </div>
                 </div>
                 <div>
@@ -667,7 +767,7 @@ export default function Revenue() {
                     </span>
                   </div>
                 </div>
-                {formData.amount && (parseFloat(formData.discount_percentage || '0') > 0 || parseFloat(formData.tax_service_value || '0') > 0) && (
+                {formData.amount && (parseFloat(formData.discount_value || '0') > 0 || parseFloat(formData.tax_service_value || '0') > 0) && (
                   <div className="p-3 bg-purple-800/30 rounded-lg border border-purple-500/20">
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-white/70">Revenue:</span>
@@ -675,11 +775,20 @@ export default function Revenue() {
                         Rp {parseFloat(formData.amount).toLocaleString('id-ID')}
                       </span>
                     </div>
-                    {formData.discount_percentage && parseFloat(formData.discount_percentage) > 0 && (
+                    {formData.discount_value && parseFloat(formData.discount_value) > 0 && (
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="text-white/70">Discount ({formData.discount_percentage}%):</span>
+                        <span className="text-white/70">
+                          Discount {formData.discount_type === 'PERCENTAGE' ? `(${formData.discount_value}%)` : ''}:
+                        </span>
                         <span className="text-red-400 font-medium">
-                          - Rp {((parseFloat(formData.amount) * parseFloat(formData.discount_percentage)) / 100).toLocaleString('id-ID')}
+                          - Rp {(() => {
+                            const amount = parseFloat(formData.amount);
+                            const discountValue = parseFloat(formData.discount_value);
+                            const discount = formData.discount_type === 'PERCENTAGE'
+                              ? (amount * discountValue) / 100
+                              : discountValue;
+                            return discount.toLocaleString('id-ID');
+                          })()}
                         </span>
                       </div>
                     )}
@@ -691,7 +800,10 @@ export default function Revenue() {
                         <span className="text-orange-400 font-medium">
                           - Rp {(() => {
                             const amount = parseFloat(formData.amount);
-                            const discountAmount = (amount * parseFloat(formData.discount_percentage || '0')) / 100;
+                            const discountValue = parseFloat(formData.discount_value || '0');
+                            const discountAmount = formData.discount_type === 'PERCENTAGE'
+                              ? (amount * discountValue) / 100
+                              : discountValue;
                             const amountAfterDiscount = amount - discountAmount;
                             const taxServiceValue = parseFloat(formData.tax_service_value);
                             const taxService = formData.tax_service_type === 'PERCENTAGE'
@@ -707,7 +819,10 @@ export default function Revenue() {
                       <span className="text-green-400 font-bold">
                         Rp {(() => {
                           const amount = parseFloat(formData.amount);
-                          const discountAmount = (amount * parseFloat(formData.discount_percentage || '0')) / 100;
+                          const discountValue = parseFloat(formData.discount_value || '0');
+                          const discountAmount = formData.discount_type === 'PERCENTAGE'
+                            ? (amount * discountValue) / 100
+                            : discountValue;
                           const amountAfterDiscount = amount - discountAmount;
                           const taxServiceValue = parseFloat(formData.tax_service_value || '0');
                           const taxService = formData.tax_service_type === 'PERCENTAGE'

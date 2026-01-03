@@ -67,6 +67,8 @@ export default function Invoices() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedResort, setSelectedResort] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   
@@ -186,36 +188,47 @@ export default function Invoices() {
 
     if (profitError) throw profitError;
 
-    // Group revenue by asset category
-    const revenueByCategory: { [key: string]: number } = {};
+    // Group revenue by asset category - track both gross revenue and net amount
+    const revenueByCategory: { [key: string]: { grossRevenue: number; netAmount: number } } = {};
     revenueData?.forEach((record) => {
       const category = record.asset_category;
-      revenueByCategory[category] = (revenueByCategory[category] || 0) + Number(record.amount);
+      const grossAmount = Number(record.amount) || 0;
+      const discount = Number(record.discount) || 0;
+      const taxService = Number(record.tax_service) || 0;
+      // Net amount = gross revenue - discount - tax & service
+      const netAmount = grossAmount - discount - taxService;
+      
+      if (!revenueByCategory[category]) {
+        revenueByCategory[category] = { grossRevenue: 0, netAmount: 0 };
+      }
+      revenueByCategory[category].grossRevenue += grossAmount;
+      revenueByCategory[category].netAmount += netAmount;
     });
 
-    // Calculate line items
+    // Calculate line items - profit sharing based on NET AMOUNT (after discount & tax_service)
     const lineItems: any[] = [];
     let totalRevenue = 0;
     let totalDkuShare = 0;
     let totalResortShare = 0;
 
-    Object.entries(revenueByCategory).forEach(([category, revenue]) => {
+    Object.entries(revenueByCategory).forEach(([category, { grossRevenue, netAmount }]) => {
       const config = profitConfigs?.find(c => c.asset_category === category);
       const dkuPercentage = config?.dku_percentage || 70;
       const resortPercentage = config?.resort_percentage || 30;
-      const dkuAmount = (revenue * dkuPercentage) / 100;
-      const resortAmount = (revenue * resortPercentage) / 100;
+      // Profit sharing calculated from NET AMOUNT (not gross revenue)
+      const dkuAmount = (netAmount * dkuPercentage) / 100;
+      const resortAmount = (netAmount * resortPercentage) / 100;
 
       lineItems.push({
         asset_category: category,
-        revenue,
+        revenue: netAmount, // Store net amount as revenue for invoice line item
         dku_percentage: dkuPercentage,
         resort_percentage: resortPercentage,
         dku_amount: dkuAmount,
         resort_amount: resortAmount,
       });
 
-      totalRevenue += revenue;
+      totalRevenue += netAmount; // Total is sum of net amounts
       totalDkuShare += dkuAmount;
       totalResortShare += resortAmount;
     });
@@ -569,36 +582,58 @@ export default function Invoices() {
           </div>
         ) : (
           <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
-            {/* Search and Date Filter */}
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative md:col-span-1">
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search by invoice number or resort..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
+            {/* Filters - same style as Assets page */}
+            <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-purple-500/20 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search invoice..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <select
+                  value={selectedResort}
+                  onChange={(e) => setSelectedResort(e.target.value)}
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="all">All Resorts</option>
+                  {resorts.map(resort => (
+                    <option key={resort.id} value={resort.id}>{resort.name}</option>
+                  ))}
+                </select>
+                
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="all">All Status</option>
+                  <option value="DRAFT">Draft</option>
+                  <option value="SENT">Sent</option>
+                  <option value="PAID">Paid</option>
+                </select>
+                
                 <input
                   type="date"
                   placeholder="Start Date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
-              </div>
-              <div>
+                
                 <input
                   type="date"
                   placeholder="End Date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -621,11 +656,15 @@ export default function Invoices() {
                     .filter((invoice) => {
                       const invoiceNumber = invoice.invoice_number || '';
                       const resortName = invoice.resort?.name || '';
-                      const status = invoice.status || '';
                       const search = searchTerm.toLowerCase();
                       const matchesSearch = invoiceNumber.toLowerCase().includes(search) ||
-                                          resortName.toLowerCase().includes(search) ||
-                                          status.toLowerCase().includes(search);
+                                          resortName.toLowerCase().includes(search);
+                      
+                      // Resort filtering
+                      const matchesResort = selectedResort === 'all' || invoice.resort_id === selectedResort;
+                      
+                      // Status filtering
+                      const matchesStatus = selectedStatus === 'all' || invoice.status === selectedStatus;
                       
                       // Date filtering
                       let matchesDate = true;
@@ -639,7 +678,7 @@ export default function Invoices() {
                         }
                       }
                       
-                      return matchesSearch && matchesDate;
+                      return matchesSearch && matchesResort && matchesStatus && matchesDate;
                     })
                     .map((invoice) => (
                     <tr key={invoice.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
@@ -718,11 +757,12 @@ export default function Invoices() {
                   {invoices.filter((invoice) => {
                     const invoiceNumber = invoice.invoice_number || '';
                     const resortName = invoice.resort?.name || '';
-                    const status = invoice.status || '';
                     const search = searchTerm.toLowerCase();
                     const matchesSearch = invoiceNumber.toLowerCase().includes(search) ||
-                                        resortName.toLowerCase().includes(search) ||
-                                        status.toLowerCase().includes(search);
+                                        resortName.toLowerCase().includes(search);
+                    
+                    const matchesResort = selectedResort === 'all' || invoice.resort_id === selectedResort;
+                    const matchesStatus = selectedStatus === 'all' || invoice.status === selectedStatus;
                     
                     let matchesDate = true;
                     if (startDate || endDate) {
@@ -735,11 +775,13 @@ export default function Invoices() {
                       }
                     }
                     
-                    return matchesSearch && matchesDate;
+                    return matchesSearch && matchesResort && matchesStatus && matchesDate;
                   }).length === 0 && (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-white/50">
-                        {searchTerm || startDate || endDate ? 'No invoices match your filters' : 'No invoices available'}
+                        {searchTerm || selectedResort !== 'all' || selectedStatus !== 'all' || startDate || endDate 
+                          ? 'No invoices match your filters' 
+                          : 'No invoices available'}
                       </td>
                     </tr>
                   )}

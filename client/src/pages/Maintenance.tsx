@@ -27,6 +27,12 @@ interface AssetDetail {
   name: string;
   serial_number: string | null;
   photo_url: string | null;
+  resort_id?: string;
+}
+
+interface Resort {
+  id: string;
+  name: string;
 }
 
 interface Sparepart {
@@ -48,16 +54,21 @@ interface SparepartUsage {
 export default function Maintenance() {
   const { user, profile } = useAuth();
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
+  const [resorts, setResorts] = useState<Resort[]>([]);
   const [assets, setAssets] = useState<AssetDetail[]>([]);
+  const [filteredAssets, setFilteredAssets] = useState<AssetDetail[]>([]);
   const [spareparts, setSpareparts] = useState<Sparepart[]>([]);
   const [sparepartUsage, setSparepartUsage] = useState<SparepartUsage[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetDetail | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedResort, setSelectedResort] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [formData, setFormData] = useState({
+    resort_id: '',
     asset_id: '',
     type: 'PREVENTIVE' as MaintenanceType,
     description: '',
@@ -82,15 +93,36 @@ export default function Maintenance() {
 
   useEffect(() => {
     fetchRecords();
+    fetchResorts();
     fetchAssets();
   }, []);
+
+  const fetchResorts = async () => {
+    const { data } = await supabase.from('resorts').select('id, name').order('name');
+    setResorts(data || []);
+  };
 
   const fetchAssets = async () => {
     const { data } = await supabase
       .from('assets')
-      .select('id, name, serial_number, photo_url')
+      .select('id, name, serial_number, photo_url, resort_id')
       .eq('status', 'ACTIVE');
     setAssets(data || []);
+  };
+
+  // Filter assets when resort changes in form
+  const handleFormResortChange = (resortId: string) => {
+    setFormData({ ...formData, resort_id: resortId, asset_id: '' });
+    setSelectedAsset(null);
+    setSparepartUsage([]);
+    setSpareparts([]);
+    
+    if (resortId) {
+      const filtered = assets.filter(a => a.resort_id === resortId);
+      setFilteredAssets(filtered);
+    } else {
+      setFilteredAssets([]);
+    }
   };
 
   const fetchSpareparts = async (assetId?: string) => {
@@ -153,7 +185,7 @@ export default function Maintenance() {
         .from('maintenance_records')
         .select(`
           *,
-          asset:assets(name, serial_number, photo_url),
+          asset:assets(name, serial_number, photo_url, resort_id),
           maintenance_spareparts(
             sparepart:sparepart_inventory(sparepart_name, asset_category)
           )
@@ -372,6 +404,7 @@ export default function Maintenance() {
       alert('Maintenance record created successfully! Inventory updated.');
       setShowModal(false);
       setFormData({
+        resort_id: '',
         asset_id: '',
         type: 'PREVENTIVE',
         description: '',
@@ -382,7 +415,8 @@ export default function Maintenance() {
       });
       setSelectedAsset(null);
       setSparepartUsage([]);
-      setSpareparts([]); // Clear spareparts list
+      setSpareparts([]);
+      setFilteredAssets([]);
       fetchRecords();
     } catch (error: any) {
       alert('Error creating maintenance record: ' + error.message);
@@ -418,36 +452,57 @@ export default function Maintenance() {
           </div>
         ) : (
           <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
-            {/* Search and Date Filter */}
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative md:col-span-1">
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search by asset name or description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
+            {/* Filters - same style as Assets page */}
+            <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-purple-500/20 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search maintenance..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <select
+                  value={selectedResort}
+                  onChange={(e) => setSelectedResort(e.target.value)}
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="all">All Resorts</option>
+                  {resorts.map(resort => (
+                    <option key={resort.id} value={resort.id}>{resort.name}</option>
+                  ))}
+                </select>
+                
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="all">All Types</option>
+                  <option value="PREVENTIVE">Preventive</option>
+                  <option value="CORRECTIVE">Corrective</option>
+                </select>
+                
                 <input
                   type="date"
                   placeholder="Start Date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
-              </div>
-              <div>
+                
                 <input
                   type="date"
                   placeholder="End Date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -475,6 +530,13 @@ export default function Maintenance() {
                       const matchesSearch = assetName.toLowerCase().includes(search) || 
                                           description.toLowerCase().includes(search);
                       
+                      // Resort filtering
+                      const assetResortId = (record as any).asset?.resort_id;
+                      const matchesResort = selectedResort === 'all' || assetResortId === selectedResort;
+                      
+                      // Type filtering
+                      const matchesType = selectedType === 'all' || record.type === selectedType;
+                      
                       // Date filtering
                       let matchesDate = true;
                       if (startDate || endDate) {
@@ -487,7 +549,7 @@ export default function Maintenance() {
                         }
                       }
                       
-                      return matchesSearch && matchesDate;
+                      return matchesSearch && matchesResort && matchesType && matchesDate;
                     })
                     .map((record) => (
                     <tr key={record.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
@@ -573,6 +635,10 @@ export default function Maintenance() {
                     const matchesSearch = assetName.toLowerCase().includes(search) || 
                                         description.toLowerCase().includes(search);
                     
+                    const assetResortId = (record as any).asset?.resort_id;
+                    const matchesResort = selectedResort === 'all' || assetResortId === selectedResort;
+                    const matchesType = selectedType === 'all' || record.type === selectedType;
+                    
                     let matchesDate = true;
                     if (startDate || endDate) {
                       const recordDate = new Date(record.start_date);
@@ -584,11 +650,13 @@ export default function Maintenance() {
                       }
                     }
                     
-                    return matchesSearch && matchesDate;
+                    return matchesSearch && matchesResort && matchesType && matchesDate;
                   }).length === 0 && (
                     <tr>
                       <td colSpan={isManager ? 8 : 7} className="py-8 text-center text-white/50">
-                        {searchTerm || startDate || endDate ? 'No maintenance records match your filters' : 'No maintenance records available'}
+                        {searchTerm || selectedResort !== 'all' || selectedType !== 'all' || startDate || endDate 
+                          ? 'No maintenance records match your filters' 
+                          : 'No maintenance records available'}
                       </td>
                     </tr>
                   )}
@@ -714,20 +782,40 @@ export default function Maintenance() {
               <h2 className="text-2xl font-bold text-white mb-6">Add Maintenance Record</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-white mb-1">Resort *</label>
+                  <select
+                    required
+                    value={formData.resort_id}
+                    onChange={(e) => handleFormResortChange(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  >
+                    <option value="">Select Resort</option>
+                    {resorts.map((resort) => (
+                      <option key={resort.id} value={resort.id}>
+                        {resort.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-white mb-1">Asset *</label>
                   <select
                     required
                     value={formData.asset_id}
                     onChange={(e) => handleAssetChange(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    disabled={!formData.resort_id}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="">Select Asset</option>
-                    {assets.map((asset) => (
+                    <option value="">{formData.resort_id ? 'Select Asset' : 'Select Resort First'}</option>
+                    {filteredAssets.map((asset) => (
                       <option key={asset.id} value={asset.id}>
                         {asset.name} {asset.serial_number ? `(${asset.serial_number})` : ''}
                       </option>
                     ))}
                   </select>
+                  {formData.resort_id && filteredAssets.length === 0 && (
+                    <p className="text-xs text-yellow-300 mt-1">No active assets in this resort</p>
+                  )}
                 </div>
 
                 {/* Asset Details Preview */}
@@ -933,6 +1021,8 @@ export default function Maintenance() {
                       setShowModal(false);
                       setSelectedAsset(null);
                       setSparepartUsage([]);
+                      setFilteredAssets([]);
+                      setSpareparts([]);
                     }}
                     className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                   >

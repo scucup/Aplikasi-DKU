@@ -56,7 +56,9 @@ export default function Expenses() {
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [approvalComments, setApprovalComments] = useState('');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [filterStatus, setFilterStatus] = useState<'ALL' | ApprovalStatus>('ALL');
+  const [filterStatus, setFilterStatus] = useState<'all' | ApprovalStatus>('all');
+  const [selectedResort, setSelectedResort] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -625,6 +627,44 @@ export default function Expenses() {
     }
   };
 
+  // Filter function to be used for both table and summary
+  const filterExpenses = (expense: Expense) => {
+    const description = expense.description || '';
+    const submitterName = expense.submitter?.name || '';
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = description.toLowerCase().includes(search) ||
+                        submitterName.toLowerCase().includes(search);
+    
+    // Resort filtering
+    const matchesResort = selectedResort === 'all' || expense.resort_id === selectedResort;
+    
+    // Category filtering
+    const matchesCategory = selectedCategory === 'all' || expense.category === selectedCategory;
+    
+    // Status filtering
+    const matchesStatus = filterStatus === 'all' || expense.status === filterStatus;
+    
+    // Date filtering
+    let matchesDate = true;
+    if (startDate || endDate) {
+      const expenseDate = new Date(expense.date);
+      if (startDate) {
+        matchesDate = matchesDate && expenseDate >= new Date(startDate);
+      }
+      if (endDate) {
+        matchesDate = matchesDate && expenseDate <= new Date(endDate);
+      }
+    }
+    
+    return matchesSearch && matchesResort && matchesCategory && matchesStatus && matchesDate;
+  };
+
+  // Get filtered expenses
+  const filteredExpenses = expenses.filter(filterExpenses);
+
+  // Check if any filter is active
+  const isFilterActive = searchTerm || selectedResort !== 'all' || selectedCategory !== 'all' || filterStatus !== 'all' || startDate || endDate;
+
   return (
     <Layout>
       <div className="max-w-7xl mx-auto p-8">
@@ -644,50 +684,60 @@ export default function Expenses() {
         {canApprove && (
           <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-yellow-900/30 backdrop-blur-sm rounded-xl p-4 border border-yellow-500/30">
-              <div className="text-sm text-yellow-200 font-medium mb-1">Pending</div>
+              <div className="text-sm text-yellow-200 font-medium mb-1">
+                Pending {isFilterActive && <span className="text-yellow-100">(Filtered)</span>}
+              </div>
               <div className="text-2xl font-bold text-white">
-                {expenses.filter((e) => e.status === 'PENDING').length}
+                {filteredExpenses.filter((e) => e.status === 'PENDING').length}
               </div>
               <div className="text-xs text-yellow-300 mt-1">
                 Rp{' '}
-                {expenses
+                {filteredExpenses
                   .filter((e) => e.status === 'PENDING')
                   .reduce((sum, e) => sum + e.amount, 0)
                   .toLocaleString('id-ID')}
               </div>
             </div>
             <div className="bg-green-900/30 backdrop-blur-sm rounded-xl p-4 border border-green-500/30">
-              <div className="text-sm text-green-200 font-medium mb-1">Approved</div>
+              <div className="text-sm text-green-200 font-medium mb-1">
+                Approved {isFilterActive && <span className="text-green-100">(Filtered)</span>}
+              </div>
               <div className="text-2xl font-bold text-white">
-                {expenses.filter((e) => e.status === 'APPROVED').length}
+                {filteredExpenses.filter((e) => e.status === 'APPROVED').length}
               </div>
               <div className="text-xs text-green-300 mt-1">
                 Rp{' '}
-                {expenses
+                {filteredExpenses
                   .filter((e) => e.status === 'APPROVED')
                   .reduce((sum, e) => sum + e.amount, 0)
                   .toLocaleString('id-ID')}
               </div>
             </div>
             <div className="bg-red-900/30 backdrop-blur-sm rounded-xl p-4 border border-red-500/30">
-              <div className="text-sm text-red-200 font-medium mb-1">Rejected</div>
+              <div className="text-sm text-red-200 font-medium mb-1">
+                Rejected {isFilterActive && <span className="text-red-100">(Filtered)</span>}
+              </div>
               <div className="text-2xl font-bold text-white">
-                {expenses.filter((e) => e.status === 'REJECTED').length}
+                {filteredExpenses.filter((e) => e.status === 'REJECTED').length}
               </div>
               <div className="text-xs text-red-300 mt-1">
                 Rp{' '}
-                {expenses
+                {filteredExpenses
                   .filter((e) => e.status === 'REJECTED')
                   .reduce((sum, e) => sum + e.amount, 0)
                   .toLocaleString('id-ID')}
               </div>
             </div>
             <div className="bg-blue-900/30 backdrop-blur-sm rounded-xl p-4 border border-blue-500/30">
-              <div className="text-sm text-blue-200 font-medium mb-1">Total</div>
-              <div className="text-2xl font-bold text-white">{expenses.length}</div>
+              <div className="text-sm text-blue-200 font-medium mb-1">
+                Total {isFilterActive && <span className="text-blue-100">(Filtered)</span>}
+              </div>
+              <div className="text-2xl font-bold text-white">
+                {filteredExpenses.length} {isFilterActive && <span className="text-sm font-normal">of {expenses.length}</span>}
+              </div>
               <div className="text-xs text-blue-300 mt-1">
                 Rp{' '}
-                {expenses
+                {filteredExpenses
                   .reduce((sum, e) => sum + e.amount, 0)
                   .toLocaleString('id-ID')}
               </div>
@@ -695,67 +745,77 @@ export default function Expenses() {
           </div>
         )}
 
-        {/* Search and Filter Section */}
-        <div className="mb-6 space-y-4">
-          {/* Search and Date Filter */}
-          <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative md:col-span-1">
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search by description, category, or resort..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <input
-                  type="date"
-                  placeholder="Start Date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <input
-                  type="date"
-                  placeholder="End Date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
+        {/* Filters - same style as Assets page */}
+        <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-purple-500/20 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search expenses..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
             </div>
+            
+            <select
+              value={selectedResort}
+              onChange={(e) => setSelectedResort(e.target.value)}
+              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Resorts</option>
+              {resorts.map(resort => (
+                <option key={resort.id} value={resort.id}>{resort.name}</option>
+              ))}
+            </select>
+            
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Categories</option>
+              <option value="OPERATIONAL">Operational</option>
+              <option value="FUEL">Fuel</option>
+              <option value="MARKETING">Marketing</option>
+              <option value="SPAREPART">Sparepart</option>
+              <option value="SALARY">Salary</option>
+              <option value="BUSINESS_TRAVEL">Business Travel</option>
+              <option value="SERVICE">Service</option>
+              <option value="TOOLS">Tools</option>
+              <option value="OTHER">Other</option>
+            </select>
+            
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as 'all' | ApprovalStatus)}
+              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="all">All Status</option>
+              <option value="PENDING">Pending</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+            
+            <input
+              type="date"
+              placeholder="Start Date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+            
+            <input
+              type="date"
+              placeholder="End Date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
           </div>
-
-          {/* Filter Section */}
-          {canApprove && (
-            <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-white/90">Filter by Status:</span>
-                <div className="flex gap-2">
-                  {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => setFilterStatus(status)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                        filterStatus === status
-                          ? 'bg-purple-600 text-white shadow-md'
-                          : 'bg-purple-800/30 text-white/70 hover:bg-purple-800/50'
-                      }`}
-                    >
-                      {status}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {!canCreate && (
@@ -787,34 +847,7 @@ export default function Expenses() {
                   </tr>
                 </thead>
                 <tbody>
-                  {expenses
-                    .filter((expense) => {
-                      const matchesStatus = filterStatus === 'ALL' || expense.status === filterStatus;
-                      const description = expense.description || '';
-                      const category = expense.category || '';
-                      const resortName = expense.resort?.name || '';
-                      const submitterName = expense.submitter?.name || '';
-                      const search = searchTerm.toLowerCase();
-                      const matchesSearch = description.toLowerCase().includes(search) ||
-                                          category.toLowerCase().includes(search) ||
-                                          resortName.toLowerCase().includes(search) ||
-                                          submitterName.toLowerCase().includes(search);
-                      
-                      // Date filtering
-                      let matchesDate = true;
-                      if (startDate || endDate) {
-                        const expenseDate = new Date(expense.date);
-                        if (startDate) {
-                          matchesDate = matchesDate && expenseDate >= new Date(startDate);
-                        }
-                        if (endDate) {
-                          matchesDate = matchesDate && expenseDate <= new Date(endDate);
-                        }
-                      }
-                      
-                      return matchesStatus && matchesSearch && matchesDate;
-                    })
-                    .map((expense) => (
+                  {filteredExpenses.map((expense) => (
                     <tr key={expense.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
                       <td className="py-3 px-4 text-white">
                         {new Date(expense.date).toLocaleDateString('id-ID', {
@@ -888,34 +921,12 @@ export default function Expenses() {
                       </td>
                     </tr>
                   ))}
-                  {expenses.filter((expense) => {
-                    const matchesStatus = filterStatus === 'ALL' || expense.status === filterStatus;
-                    const description = expense.description || '';
-                    const category = expense.category || '';
-                    const resortName = expense.resort?.name || '';
-                    const submitterName = expense.submitter?.name || '';
-                    const search = searchTerm.toLowerCase();
-                    const matchesSearch = description.toLowerCase().includes(search) ||
-                                        category.toLowerCase().includes(search) ||
-                                        resortName.toLowerCase().includes(search) ||
-                                        submitterName.toLowerCase().includes(search);
-                    
-                    let matchesDate = true;
-                    if (startDate || endDate) {
-                      const expenseDate = new Date(expense.date);
-                      if (startDate) {
-                        matchesDate = matchesDate && expenseDate >= new Date(startDate);
-                      }
-                      if (endDate) {
-                        matchesDate = matchesDate && expenseDate <= new Date(endDate);
-                      }
-                    }
-                    
-                    return matchesStatus && matchesSearch && matchesDate;
-                  }).length === 0 && (
+                  {filteredExpenses.length === 0 && (
                     <tr>
                       <td colSpan={8} className="py-8 text-center text-white/50">
-                        {searchTerm || startDate || endDate ? 'No expenses match your filters' : 'No expenses available'}
+                        {isFilterActive 
+                          ? 'No expenses match your filters' 
+                          : 'No expenses available'}
                       </td>
                     </tr>
                   )}

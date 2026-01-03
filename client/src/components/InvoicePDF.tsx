@@ -70,8 +70,8 @@ export const generateInvoicePDF = async (
         setTimeout(reject, 5000); // 5 second timeout
       });
       
-      // Add logo to PDF (adjust size as needed)
-      doc.addImage(img, 'PNG', 15, 10, 50, 20);
+      // Add logo to PDF (10% smaller: 50*0.9=45, 20*0.9=18)
+      doc.addImage(img, 'PNG', 15, 10, 45, 18);
     } catch (error) {
       console.warn('Logo image failed to load, using text fallback');
       // Fallback to text if image fails
@@ -112,10 +112,14 @@ export const generateInvoicePDF = async (
   doc.setLineWidth(0.3);
   doc.line(15, 34, pageWidth - 15, 34);
   
-  // INVOICE title
-  doc.setFontSize(14);
+  // INVOICE title - blue color matching logo and table, larger font for professional look
+  doc.setTextColor(37, 99, 235);
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('INVOICE', pageWidth / 2, 45, { align: 'center' });
+  doc.text('INVOICE', pageWidth / 2, 46, { align: 'center' });
+  
+  // Reset text color to black for subsequent text
+  doc.setTextColor(0, 0, 0);
   
   // Invoice details (left side)
   doc.setFontSize(10);
@@ -123,27 +127,29 @@ export const generateInvoicePDF = async (
   const leftCol = 15;
   let yPos = 55;
   
-  // To: section
+  // To: section - define content start position after ":"
+  const contentStartX = leftCol + 13;
+  
   doc.setFont('helvetica', 'bold');
   doc.text('To', leftCol, yPos);
-  doc.text(':', leftCol + 35, yPos);
+  doc.text(':', leftCol + 10, yPos);
   
   const resortLegalName = invoice.resort?.legal_company_name || invoice.resort?.name || '-';
   const resortAddress = invoice.resort?.company_address || '-';
   
   doc.setFont('helvetica', 'bold');
-  doc.text(resortLegalName, leftCol + 38, yPos);
+  doc.text(resortLegalName, contentStartX, yPos);
   yPos += 6;
   
-  // Accounting Dept
+  // Accounting Dept - aligned with company name
   doc.setFont('helvetica', 'normal');
-  doc.text('Accounting Dept.', leftCol + 38, yPos);
+  doc.text('Accounting Dept.', contentStartX, yPos);
   yPos += 6;
   
-  // Split address into multiple lines if needed
+  // Split address into multiple lines if needed - aligned with company name
   const addressLines = doc.splitTextToSize(resortAddress, 80);
   addressLines.forEach((line: string) => {
-    doc.text(line, leftCol + 38, yPos);
+    doc.text(line, contentStartX, yPos);
     yPos += 5;
   });
   
@@ -167,6 +173,21 @@ export const generateInvoicePDF = async (
   
   doc.text('Term', rightCol, rightYPos);
   doc.text(': Cash', rightCol + 20, rightYPos);
+  rightYPos += 7;
+  
+  // Billing Period
+  const startDateFormatted = new Date(invoice.start_date).toLocaleDateString('id-ID', { 
+    day: 'numeric', 
+    month: 'short', 
+    year: 'numeric' 
+  });
+  const endDateFormatted = new Date(invoice.end_date).toLocaleDateString('id-ID', { 
+    day: 'numeric', 
+    month: 'short', 
+    year: 'numeric' 
+  });
+  doc.text('Period', rightCol, rightYPos);
+  doc.text(`: ${startDateFormatted} - ${endDateFormatted}`, rightCol + 20, rightYPos);
   
   // Period description - removed as per user request
   yPos += 8;
@@ -195,13 +216,13 @@ export const generateInvoicePDF = async (
     ]],
     theme: 'grid',
     headStyles: {
-      fillColor: [26, 188, 156], // Teal/green color like in the image
+      fillColor: [37, 99, 235], // Blue color matching DKU logo
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       halign: 'center',
     },
     footStyles: {
-      fillColor: [26, 188, 156],
+      fillColor: [37, 99, 235], // Blue color matching DKU logo
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       halign: 'center',
@@ -223,15 +244,19 @@ export const generateInvoicePDF = async (
   // Summary billing section
   let finalY = (doc as any).lastAutoTable.finalY + 5;
   
-  // Add summary box for total payment
-  doc.setFillColor(26, 188, 156);
-  doc.rect(leftCol, finalY, pageWidth - 30, 10, 'F');
+  // Get table width (same as autoTable default: margin 14 on each side)
+  const tableMargin = 14;
+  const tableWidth = pageWidth - (tableMargin * 2);
+  
+  // Add summary box for total payment - same width as table
+  doc.setFillColor(37, 99, 235); // Blue color matching DKU logo
+  doc.rect(tableMargin, finalY, tableWidth, 10, 'F');
   
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text(`TOTAL PAYMENT TO ${bankAccount.account_holder_name.toUpperCase()}`, leftCol + 3, finalY + 6.5);
-  doc.text(`Rp ${Number(invoice.dku_share).toLocaleString('id-ID')}`, pageWidth - 18, finalY + 6.5, { align: 'right' });
+  doc.text(`TOTAL PAYMENT TO ${bankAccount.account_holder_name.toUpperCase()}`, tableMargin + 3, finalY + 6.5);
+  doc.text(`Rp ${Number(invoice.dku_share).toLocaleString('id-ID')}`, pageWidth - tableMargin - 3, finalY + 6.5, { align: 'right' });
   
   finalY += 15;
   
@@ -283,8 +308,10 @@ export const generateInvoicePDF = async (
   doc.setFontSize(9);
   doc.text('NIKO NANDA KARUA', pageWidth - 60, bankY);
   
-  // Bottom blue line
+  // Bottom blue lines (thin on top, thick on bottom - mirror of header)
   doc.setDrawColor(37, 99, 235);
+  doc.setLineWidth(0.3);
+  doc.line(15, doc.internal.pageSize.getHeight() - 12, pageWidth - 15, doc.internal.pageSize.getHeight() - 12);
   doc.setLineWidth(1.5);
   doc.line(15, doc.internal.pageSize.getHeight() - 10, pageWidth - 15, doc.internal.pageSize.getHeight() - 10);
   

@@ -25,6 +25,7 @@ export default function Spareparts() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
+  const [selectedResort, setSelectedResort] = useState<string>('ALL');
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -90,13 +91,12 @@ export default function Spareparts() {
   const filteredInventory = inventory.filter((item) => {
     const matchesSearch =
       item.sparepart_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.resort_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.asset_category.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.last_supplier && item.last_supplier.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesCategory = filterCategory === 'ALL' || item.asset_category === filterCategory;
+    const matchesResort = selectedResort === 'ALL' || item.resort_id === selectedResort;
 
-    return matchesSearch && matchesCategory;
+    return matchesSearch && matchesCategory && matchesResort;
   });
 
   // Calculate statistics
@@ -244,12 +244,12 @@ export default function Spareparts() {
           </div>
         </div>
 
-        {/* Search and Filter */}
-        <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl p-4 border border-purple-500/20 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Filters - same style as Assets page */}
+        <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-purple-500/20 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
               <svg
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -263,16 +263,33 @@ export default function Spareparts() {
               </svg>
               <input
                 type="text"
-                placeholder="Search by name, resort, category, or supplier..."
+                placeholder="Search spareparts..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 pl-12 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
             </div>
+            
+            <select
+              value={selectedResort}
+              onChange={(e) => setSelectedResort(e.target.value)}
+              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="ALL" className="bg-slate-800">All Resorts</option>
+              {[...new Set(inventory.map(item => item.resort_id))].map(resortId => {
+                const resort = inventory.find(item => item.resort_id === resortId);
+                return (
+                  <option key={resortId} value={resortId} className="bg-slate-800">
+                    {resort?.resort_name || 'Unknown'}
+                  </option>
+                );
+              })}
+            </select>
+            
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-4 py-3 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             >
               {assetCategories.map((cat) => (
                 <option key={cat.value} value={cat.value} className="bg-slate-800">
