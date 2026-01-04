@@ -195,11 +195,11 @@ export const generateInvoicePDF = async (
   // Line items table - detailed breakdown with profit sharing
   const tableData = lineItems.map((item) => [
     item.asset_category.replace('_', ' '),
-    `Rp ${Number(item.revenue).toLocaleString('id-ID')}`,
+    `Rp ${Math.floor(Number(item.revenue)).toLocaleString('id-ID')}`,
     `${item.dku_percentage}%`,
-    `Rp ${Number(item.dku_amount).toLocaleString('id-ID')}`,
+    `Rp ${Math.floor(Number(item.dku_amount)).toLocaleString('id-ID')}`,
     `${item.resort_percentage}%`,
-    `Rp ${Number(item.resort_amount).toLocaleString('id-ID')}`,
+    `Rp ${Math.floor(Number(item.resort_amount)).toLocaleString('id-ID')}`,
   ]);
   
   autoTable(doc, {
@@ -208,11 +208,11 @@ export const generateInvoicePDF = async (
     body: tableData,
     foot: [[
       'TOTAL',
-      `Rp ${Number(invoice.total_revenue).toLocaleString('id-ID')}`,
+      `Rp ${Math.floor(Number(invoice.total_revenue)).toLocaleString('id-ID')}`,
       '',
-      `Rp ${Number(invoice.dku_share).toLocaleString('id-ID')}`,
+      `Rp ${Math.floor(Number(invoice.dku_share)).toLocaleString('id-ID')}`,
       '',
-      `Rp ${Number(invoice.resort_share).toLocaleString('id-ID')}`,
+      `Rp ${Math.floor(Number(invoice.resort_share)).toLocaleString('id-ID')}`,
     ]],
     theme: 'grid',
     headStyles: {
@@ -256,7 +256,7 @@ export const generateInvoicePDF = async (
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.text(`TOTAL PAYMENT TO ${bankAccount.account_holder_name.toUpperCase()}`, tableMargin + 3, finalY + 6.5);
-  doc.text(`Rp ${Number(invoice.dku_share).toLocaleString('id-ID')}`, pageWidth - tableMargin - 3, finalY + 6.5, { align: 'right' });
+  doc.text(`Rp ${Math.floor(Number(invoice.dku_share)).toLocaleString('id-ID')}`, pageWidth - tableMargin - 3, finalY + 6.5, { align: 'right' });
   
   finalY += 15;
   
