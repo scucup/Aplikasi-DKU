@@ -1,12 +1,13 @@
-import { AreaChart as RechartsAreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AreaChart as RechartsAreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 
 interface AreaChartProps {
   data: any[];
   title: string;
   dataKeys: { key: string; color: string; name: string }[];
+  highlightPeriod?: string;
 }
 
-export default function AreaChart({ data, title, dataKeys }: AreaChartProps) {
+export default function AreaChart({ data, title, dataKeys, highlightPeriod }: AreaChartProps) {
   return (
     <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
       <h3 className="text-xl font-bold text-white mb-6">{title}</h3>
@@ -41,6 +42,20 @@ export default function AreaChart({ data, title, dataKeys }: AreaChartProps) {
             formatter={(value: any) => `Rp ${Number(value).toLocaleString('id-ID')}`}
           />
           <Legend />
+          {highlightPeriod && highlightPeriod !== 'all' && (
+            <ReferenceLine 
+              x={highlightPeriod} 
+              stroke="#fbbf24" 
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              label={{ 
+                value: '●', 
+                position: 'top', 
+                fill: '#fbbf24',
+                fontSize: 20
+              }}
+            />
+          )}
           {dataKeys.map((item, index) => (
             <Area
               key={index}

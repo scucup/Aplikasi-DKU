@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 import DonutChart from '../components/charts/DonutChart';
+import AreaChart from '../components/charts/AreaChart';
 import LineChart from '../components/charts/LineChart';
 
 interface ResortPerformance {
@@ -25,8 +26,24 @@ interface ResortPerformance {
 interface MonthlyResortData {
   month: string;
   revenue: number;
+  dkuShare: number;
   expenses: number;
   profit: number;
+}
+
+interface MonthlyChartData {
+  [month: string]: Array<{ name: string; value: number }>;
+}
+
+interface MonthlyResortStats {
+  [month: string]: {
+    totalRevenue: number;
+    dkuShare: number;
+    totalExpenses: number;
+    netProfit: number;
+    profitMargin: number;
+    maintenanceCost: number;
+  };
 }
 
 export default function ResortAnalytics() {
@@ -39,6 +56,12 @@ export default function ResortAnalytics() {
   const [selectedResort, setSelectedResort] = useState<ResortPerformance | null>(null);
   const [monthlyData, setMonthlyData] = useState<MonthlyResortData[]>([]);
   const [categoryRevenue, setCategoryRevenue] = useState<any[]>([]);
+  const [expensesDistribution, setExpensesDistribution] = useState<any[]>([]);
+  const [monthlyCategoryRevenueData, setMonthlyCategoryRevenueData] = useState<MonthlyChartData>({});
+  const [monthlyExpensesDistData, setMonthlyExpensesDistData] = useState<MonthlyChartData>({});
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  const [monthlyResortStats, setMonthlyResortStats] = useState<MonthlyResortStats>({});
+  const [selectedCardPeriod, setSelectedCardPeriod] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
   const isFinancialUser = profile?.role === 'ADMIN' || profile?.role === 'MANAGER';
@@ -51,9 +74,9 @@ export default function ResortAnalytics() {
     fetchResortAnalytics();
   }, [selectedResortId]);
 
-  const getMonthName = (monthIndex: number) => {
+  const getMonthYearLabel = (date: Date) => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[monthIndex];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
   const fetchResortAnalytics = async () => {
@@ -85,6 +108,12 @@ export default function ResortAnalytics() {
       const { data: maintenanceData } = await supabase
         .from('maintenance_records')
         .select('asset_id, labor_cost, sparepart_cost, start_date');
+
+      // Fetch expenses per resort
+      const { data: expensesData } = await supabase
+        .from('expenses')
+        .select('resort_id, amount, status, date, category')
+        .eq('status', 'APPROVED');
 
       // Calculate performance for each resort
       const performanceList: ResortPerformance[] = [];
@@ -124,8 +153,12 @@ export default function ResortAnalytics() {
           0
         );
 
-        // Expenses (simplified - divide equally or skip for now)
-        const totalExpenses = 0; // We don't have resort-specific expenses in schema
+        // Expenses for this resort (from expenses table)
+        const resortExpenses = expensesData?.filter(e => e.resort_id === resort.id) || [];
+        const totalExpenses = resortExpenses.reduce(
+          (sum, e) => sum + (Number(e.amount) || 0),
+          0
+        );
 
         const netProfit = totalDkuShare - totalExpenses - maintenanceCost;
         const profitMargin = totalDkuShare > 0 ? (netProfit / totalDkuShare) * 100 : 0;
@@ -160,34 +193,86 @@ export default function ResortAnalytics() {
         // Calculate monthly data for selected resort
         const resortRevenue = revenueRecords?.filter(r => r.resort_id === selectedResortId) || [];
         const monthlyRev: { [key: string]: number } = {};
+        const monthlyDku: { [key: string]: number } = {};
 
         resortRevenue.forEach(record => {
           const netAmount = Number(record.amount) - (Number(record.discount) || 0) - (Number(record.tax_service) || 0);
           const date = new Date(record.date);
           const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          
+          const config = profitConfigs?.find(
+            c => c.resort_id === record.resort_id && c.asset_category === record.asset_category
+          );
+          const dkuPercentage = config?.dku_percentage || 0;
+          const dkuAmount = (netAmount * dkuPercentage) / 100;
+          
           monthlyRev[monthKey] = (monthlyRev[monthKey] || 0) + netAmount;
+          monthlyDku[monthKey] = (monthlyDku[monthKey] || 0) + dkuAmount;
+        });
+
+        // Calculate monthly expenses for selected resort
+        const resortExpensesFiltered = expensesData?.filter(e => e.resort_id === selectedResortId) || [];
+        const monthlyExp: { [key: string]: number } = {};
+        
+        resortExpensesFiltered.forEach(expense => {
+          const date = new Date(expense.date);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          monthlyExp[monthKey] = (monthlyExp[monthKey] || 0) + Number(expense.amount);
         });
 
         // Build monthly array for last 6 months
         const now = new Date();
         const monthlyArray: MonthlyResortData[] = [];
+        const monthlyStatsData: MonthlyResortStats = {};
+        
         for (let i = 5; i >= 0; i--) {
           const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
           const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          const monthYearLabel = getMonthYearLabel(date);
+          const dkuShare = monthlyDku[monthKey] || 0;
+          const expenses = monthlyExp[monthKey] || 0;
+          const revenue = monthlyRev[monthKey] || 0;
+          const profit = dkuShare - expenses;
+          const margin = dkuShare > 0 ? (profit / dkuShare) * 100 : 0;
+          
           monthlyArray.push({
-            month: getMonthName(date.getMonth()),
-            revenue: monthlyRev[monthKey] || 0,
-            expenses: 0,
-            profit: monthlyRev[monthKey] || 0,
+            month: monthYearLabel,
+            revenue,
+            dkuShare,
+            expenses,
+            profit,
           });
+
+          // Store monthly stats for cards
+          monthlyStatsData[monthYearLabel] = {
+            totalRevenue: revenue,
+            dkuShare,
+            totalExpenses: expenses,
+            netProfit: profit,
+            profitMargin: margin,
+            maintenanceCost: 0, // Will be calculated separately if needed
+          };
         }
         setMonthlyData(monthlyArray);
+        setMonthlyResortStats(monthlyStatsData);
 
-        // Category revenue for selected resort
+        // Category revenue for selected resort (all time and by month)
         const catRev: { [key: string]: number } = {};
+        const catRevByMonth: { [month: string]: { [cat: string]: number } } = {};
+        
         resortRevenue.forEach(record => {
           const netAmount = Number(record.amount) - (Number(record.discount) || 0) - (Number(record.tax_service) || 0);
+          const date = new Date(record.date);
+          const monthYearLabel = getMonthYearLabel(date);
+          
+          // All time
           catRev[record.asset_category] = (catRev[record.asset_category] || 0) + netAmount;
+          
+          // By month (using month-year label)
+          if (!catRevByMonth[monthYearLabel]) {
+            catRevByMonth[monthYearLabel] = {};
+          }
+          catRevByMonth[monthYearLabel][record.asset_category] = (catRevByMonth[monthYearLabel][record.asset_category] || 0) + netAmount;
         });
 
         const catRevArray = Object.entries(catRev).map(([cat, val]) => ({
@@ -195,6 +280,59 @@ export default function ResortAnalytics() {
           value: val,
         }));
         setCategoryRevenue(catRevArray);
+
+        // Build monthly category revenue data
+        const monthlyCatRevData: MonthlyChartData = {};
+        Object.entries(catRevByMonth).forEach(([month, cats]) => {
+          monthlyCatRevData[month] = Object.entries(cats)
+            .map(([cat, amount]) => ({
+              name: cat.replace('_', ' '),
+              value: amount,
+            }))
+            .sort((a, b) => b.value - a.value);
+        });
+        setMonthlyCategoryRevenueData(monthlyCatRevData);
+
+        // Expenses distribution by category for selected resort (all time and by month)
+        const resortExpensesForDist = expensesData?.filter(e => e.resort_id === selectedResortId) || [];
+        const expByCat: { [key: string]: number } = {};
+        const expByCatByMonth: { [month: string]: { [cat: string]: number } } = {};
+        
+        resortExpensesForDist.forEach(expense => {
+          const cat = expense.category || 'OTHER';
+          const date = new Date(expense.date);
+          const monthYearLabel = getMonthYearLabel(date);
+          
+          // All time
+          expByCat[cat] = (expByCat[cat] || 0) + Number(expense.amount);
+          
+          // By month (using month-year label)
+          if (!expByCatByMonth[monthYearLabel]) {
+            expByCatByMonth[monthYearLabel] = {};
+          }
+          expByCatByMonth[monthYearLabel][cat] = (expByCatByMonth[monthYearLabel][cat] || 0) + Number(expense.amount);
+        });
+
+        const expDistArray = Object.entries(expByCat).map(([cat, val]) => ({
+          name: cat.replace('_', ' '),
+          value: val,
+        })).sort((a, b) => b.value - a.value);
+        setExpensesDistribution(expDistArray);
+
+        // Build monthly expenses distribution data
+        const monthlyExpDistData: MonthlyChartData = {};
+        Object.entries(expByCatByMonth).forEach(([month, cats]) => {
+          monthlyExpDistData[month] = Object.entries(cats)
+            .map(([cat, amount]) => ({
+              name: cat.replace('_', ' '),
+              value: amount,
+            }))
+            .sort((a, b) => b.value - a.value);
+        });
+        setMonthlyExpensesDistData(monthlyExpDistData);
+
+        // Set available months
+        setAvailableMonths(monthlyArray.map(m => m.month));
       }
     } catch (error) {
       console.error('Error fetching resort analytics:', error);
@@ -209,8 +347,53 @@ export default function ResortAnalytics() {
 
   const handleBackToComparison = () => {
     setSelectedResort(null);
+    setSelectedCardPeriod('all');
     navigate('/resort-analytics', { replace: true });
   };
+
+  // Get displayed stats based on selected period
+  const getDisplayedResortStats = () => {
+    if (!selectedResort) return null;
+    
+    if (selectedCardPeriod === 'all') {
+      return selectedResort;
+    }
+    
+    const monthStats = monthlyResortStats[selectedCardPeriod];
+    if (!monthStats) {
+      return selectedResort;
+    }
+
+    return {
+      ...selectedResort,
+      total_revenue: monthStats.totalRevenue,
+      dku_share: monthStats.dkuShare,
+      total_expenses: monthStats.totalExpenses,
+      net_profit: monthStats.netProfit,
+      profit_margin: monthStats.profitMargin,
+      maintenance_cost: monthStats.maintenanceCost,
+    };
+  };
+
+  const displayedResortStats = getDisplayedResortStats();
+
+  // Get chart data based on selected period
+  const getCategoryRevenueData = () => {
+    if (selectedCardPeriod === 'all') {
+      return categoryRevenue;
+    }
+    return monthlyCategoryRevenueData[selectedCardPeriod] || [];
+  };
+
+  const getExpensesDistributionData = () => {
+    if (selectedCardPeriod === 'all') {
+      return expensesDistribution;
+    }
+    return monthlyExpensesDistData[selectedCardPeriod] || [];
+  };
+
+  const displayedCategoryRevenue = getCategoryRevenueData();
+  const displayedExpensesDistribution = getExpensesDistributionData();
 
   if (loading) {
     return (
@@ -223,7 +406,7 @@ export default function ResortAnalytics() {
   }
 
   // Detailed view for selected resort
-  if (selectedResort) {
+  if (selectedResort && displayedResortStats) {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -238,64 +421,151 @@ export default function ResortAnalytics() {
               </svg>
               Back to Comparison
             </button>
-            <h1 className="text-4xl font-bold text-white mb-2">{selectedResort.resort_name}</h1>
-            <p className="text-white/70">Detailed Performance Analytics</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-4xl font-bold text-white mb-2">{selectedResort.resort_name}</h1>
+                <p className="text-white/70">Detailed Performance Analytics</p>
+              </div>
+              {/* Card Period Selector */}
+              <select
+                value={selectedCardPeriod}
+                onChange={(e) => setSelectedCardPeriod(e.target.value)}
+                className="px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white font-medium hover:bg-purple-900/50 transition-all focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="all">All Time</option>
+                {availableMonths.map(month => (
+                  <option key={month} value={month}>{month}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30">
-              <p className="text-sm text-white/70 mb-2">Total Revenue</p>
-              <p className="text-3xl font-bold text-white">
-                Rp {(selectedResort.total_revenue / 1000000).toFixed(1)}M
+            {/* Total Assets with Utilization */}
+            <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 backdrop-blur-sm rounded-2xl p-6 border border-blue-500/30 hover:border-blue-500/50 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-blue-500/20 rounded-xl">
+                  <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-white mb-1">{displayedResortStats.total_assets}</p>
+              <p className="text-sm text-white/70">Total Assets</p>
+              <div className="mt-3 flex items-center text-xs">
+                <span className="text-green-400 font-semibold">{displayedResortStats.active_assets} Active</span>
+                <span className="text-white/50 mx-2">•</span>
+                <span className="text-orange-400 font-semibold">{displayedResortStats.maintenance_assets} Maintenance</span>
+              </div>
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-white/70">Utilization</span>
+                  <span className="text-blue-400 font-semibold">{displayedResortStats.utilization_rate.toFixed(1)}%</span>
+                </div>
+                <div className="w-full bg-white/10 rounded-full h-2">
+                  <div 
+                    className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${displayedResortStats.utilization_rate}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            {/* DKU Share with Total Revenue */}
+            <div className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30 hover:border-purple-500/50 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-purple-500/20 rounded-xl">
+                  <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-white mb-1">
+                Rp {(displayedResortStats.dku_share / 1000000).toFixed(1)}M
               </p>
+              <p className="text-sm text-white/70">DKU Share</p>
               <p className="text-xs text-purple-300 mt-2">
-                DKU Share: Rp {(selectedResort.dku_share / 1000000).toFixed(1)}M
+                Total Revenue: Rp {(displayedResortStats.total_revenue / 1000000).toFixed(1)}M
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-green-600/20 to-green-800/20 backdrop-blur-sm rounded-2xl p-6 border border-green-500/30">
-              <p className="text-sm text-white/70 mb-2">Net Profit</p>
-              <p className="text-3xl font-bold text-white">
-                Rp {(selectedResort.net_profit / 1000000).toFixed(1)}M
+            {/* Total Expenses */}
+            <div className="bg-gradient-to-br from-orange-600/20 to-orange-800/20 backdrop-blur-sm rounded-2xl p-6 border border-orange-500/30 hover:border-orange-500/50 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-orange-500/20 rounded-xl">
+                  <svg className="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-white mb-1">
+                Rp {((displayedResortStats.total_expenses + displayedResortStats.maintenance_cost) / 1000000).toFixed(1)}M
               </p>
-              <p className={`text-xs mt-2 font-semibold ${selectedResort.profit_margin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                Margin: {selectedResort.profit_margin.toFixed(1)}%
+              <p className="text-sm text-white/70">Total Expenses</p>
+              <p className="text-xs text-orange-300 mt-2">
+                Maint: Rp {(displayedResortStats.maintenance_cost / 1000000).toFixed(1)}M
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 backdrop-blur-sm rounded-2xl p-6 border border-blue-500/30">
-              <p className="text-sm text-white/70 mb-2">Asset Utilization</p>
-              <p className="text-3xl font-bold text-white">{selectedResort.utilization_rate.toFixed(1)}%</p>
-              <p className="text-xs text-blue-300 mt-2">
-                {selectedResort.active_assets}/{selectedResort.total_assets} Active
+            {/* Net Profit */}
+            <div className="bg-gradient-to-br from-pink-600/20 to-pink-800/20 backdrop-blur-sm rounded-2xl p-6 border border-pink-500/30 hover:border-pink-500/50 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-pink-500/20 rounded-xl">
+                  <svg className="w-8 h-8 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-white mb-1">
+                Rp {(displayedResortStats.net_profit / 1000000).toFixed(1)}M
               </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-600/20 to-orange-800/20 backdrop-blur-sm rounded-2xl p-6 border border-orange-500/30">
-              <p className="text-sm text-white/70 mb-2">Revenue per Asset</p>
-              <p className="text-3xl font-bold text-white">
-                Rp {(selectedResort.revenue_per_asset / 1000000).toFixed(1)}M
+              <p className="text-sm text-white/70">Net Profit</p>
+              <p className={`text-xs mt-2 font-semibold ${displayedResortStats.profit_margin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                Margin: {displayedResortStats.profit_margin.toFixed(1)}%
               </p>
-              <p className="text-xs text-orange-300 mt-2">Per unit average</p>
             </div>
           </div>
 
-          {/* Charts */}
+          {/* Charts - Row 1: Monthly DKU Share vs Expenses & Monthly Profit Trend */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             {monthlyData.length > 0 && (
-              <LineChart
-                data={monthlyData.map(m => ({ name: m.month, value: m.revenue }))}
-                title="Monthly Revenue Trend"
-                color="#8b5cf6"
+              <AreaChart
+                data={monthlyData.map(m => ({ name: m.month, dkuShare: m.dkuShare, expenses: m.expenses }))}
+                title="Monthly DKU Share vs Expenses"
+                dataKeys={[
+                  { key: 'dkuShare', color: '#8b5cf6', name: 'DKU Share' },
+                  { key: 'expenses', color: '#ec4899', name: 'Expenses' },
+                ]}
+                highlightPeriod={selectedCardPeriod}
               />
             )}
 
-            {categoryRevenue.length > 0 && (
+            {monthlyData.length > 0 && (
+              <LineChart
+                data={monthlyData.map(m => ({ name: m.month, value: m.profit }))}
+                title="Monthly Profit Trend"
+                color="#10b981"
+                highlightPeriod={selectedCardPeriod}
+              />
+            )}
+          </div>
+
+          {/* Charts - Row 2: Revenue by Category & Expenses Distribution */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {displayedCategoryRevenue.length > 0 && (
               <DonutChart
-                data={categoryRevenue}
+                data={displayedCategoryRevenue}
                 title="Revenue by Category"
                 colors={['#8b5cf6', '#ec4899', '#06b6d4', '#f59e0b', '#10b981']}
+              />
+            )}
+
+            {displayedExpensesDistribution.length > 0 && (
+              <DonutChart
+                data={displayedExpensesDistribution}
+                title="Expenses Distribution"
+                colors={['#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#ef4444', '#6366f1']}
               />
             )}
           </div>

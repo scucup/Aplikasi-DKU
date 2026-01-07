@@ -1,4 +1,4 @@
-import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ReferenceLine } from 'recharts';
 
 interface LineChartProps {
   data: Array<{
@@ -7,25 +7,29 @@ interface LineChartProps {
   }>;
   title: string;
   color: string;
+  highlightPeriod?: string;
 }
 
-export default function LineChart({ data, title, color }: LineChartProps) {
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const value = payload[0].value;
+    return (
+      <div className="bg-gray-900 border-2 border-emerald-400 rounded-xl p-4 shadow-2xl">
+        <p className="text-emerald-300 font-semibold text-sm mb-1">{label}</p>
+        <p className="text-white font-bold text-lg">
+          Rp {Number(value).toLocaleString('id-ID')}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
+export default function LineChart({ data, title, color, highlightPeriod }: LineChartProps) {
   return (
     <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
         <h3 className="text-xl font-bold text-white">{title}</h3>
-        <div className="flex gap-2">
-          <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
-            <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
-          <button className="p-1 hover:bg-white/10 rounded-lg transition-colors">
-            <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
       </div>
       <ResponsiveContainer width="100%" height={200}>
         <AreaChart data={data} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
@@ -38,14 +42,21 @@ export default function LineChart({ data, title, color }: LineChartProps) {
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
           <XAxis dataKey="name" stroke="rgba(255,255,255,0.6)" tick={{ fill: 'rgba(255,255,255,0.6)' }} />
           <YAxis stroke="rgba(255,255,255,0.6)" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }} width={80} />
-          <Tooltip 
-            contentStyle={{ 
-              backgroundColor: 'rgba(30, 20, 60, 0.95)', 
-              border: '1px solid rgba(168, 85, 247, 0.3)',
-              borderRadius: '12px',
-              color: '#fff'
-            }} 
-          />
+          <Tooltip content={<CustomTooltip />} />
+          {highlightPeriod && highlightPeriod !== 'all' && (
+            <ReferenceLine 
+              x={highlightPeriod} 
+              stroke="#fbbf24" 
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              label={{ 
+                value: '●', 
+                position: 'top', 
+                fill: '#fbbf24',
+                fontSize: 20
+              }}
+            />
+          )}
           <Area type="monotone" dataKey="value" stroke={color} fillOpacity={1} fill={`url(#gradient-${color})`} />
         </AreaChart>
       </ResponsiveContainer>
