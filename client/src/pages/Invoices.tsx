@@ -82,6 +82,9 @@ export default function Invoices() {
     bank_account_id: '',
   });
 
+  const [selectedCategories, setSelectedCategories] = useState<AssetCategory[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<AssetCategory[]>([]);
+
   const [bankFormData, setBankFormData] = useState({
     bank_name: '',
     account_number: '',
@@ -128,6 +131,32 @@ export default function Invoices() {
       }
     } catch (error) {
       console.error('Error fetching bank accounts:', error);
+    }
+  };
+
+  const fetchAvailableCategories = async (resortId: string, startDate: string, endDate: string) => {
+    if (!resortId || !startDate || !endDate) {
+      setAvailableCategories([]);
+      setSelectedCategories([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('revenue_records')
+        .select('asset_category')
+        .eq('resort_id', resortId)
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+      if (error) throw error;
+
+      // Get unique categories
+      const categories = [...new Set(data?.map(r => r.asset_category as AssetCategory) || [])];
+      setAvailableCategories(categories);
+      setSelectedCategories(categories); // Select all by default
+    } catch (error) {
+      console.error('Error fetching available categories:', error);
     }
   };
 
@@ -188,14 +217,21 @@ export default function Invoices() {
     return `${prefix}${String(nextNumber).padStart(4, '0')}`;
   };
 
-  const calculateInvoiceData = async (resortId: string, startDate: string, endDate: string) => {
+  const calculateInvoiceData = async (resortId: string, startDate: string, endDate: string, categories?: AssetCategory[]) => {
     // Fetch revenue records for the period
-    const { data: revenueData, error: revenueError } = await supabase
+    let query = supabase
       .from('revenue_records')
       .select('*')
       .eq('resort_id', resortId)
       .gte('date', startDate)
       .lte('date', endDate);
+
+    // Filter by selected categories if provided
+    if (categories && categories.length > 0) {
+      query = query.in('asset_category', categories);
+    }
+
+    const { data: revenueData, error: revenueError } = await query;
 
     if (revenueError) throw revenueError;
 
@@ -258,9 +294,14 @@ export default function Invoices() {
   const handleGenerateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (selectedCategories.length === 0) {
+      alert('Please select at least one asset category');
+      return;
+    }
+
     try {
       const { lineItems, totalRevenue, totalDkuShare, totalResortShare } = 
-        await calculateInvoiceData(formData.resort_id, formData.start_date, formData.end_date);
+        await calculateInvoiceData(formData.resort_id, formData.start_date, formData.end_date, selectedCategories);
 
       if (lineItems.length === 0) {
         alert('No revenue data found for the selected period');
@@ -302,6 +343,8 @@ export default function Invoices() {
 
       setShowModal(false);
       setFormData({ resort_id: '', start_date: '', end_date: '', bank_account_id: formData.bank_account_id });
+      setSelectedCategories([]);
+      setAvailableCategories([]);
       fetchInvoices();
       alert('Invoice generated successfully!');
     } catch (error: any) {
@@ -813,7 +856,7 @@ export default function Invoices() {
         {/* Generate Invoice Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">Generate Invoice</h2>
               <form onSubmit={handleGenerateInvoice} className="space-y-4">
                 <div>
@@ -823,7 +866,10 @@ export default function Invoices() {
                   <select
                     required
                     value={formData.resort_id}
-                    onChange={(e) => setFormData({ ...formData, resort_id: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, resort_id: e.target.value });
+                      fetchAvailableCategories(e.target.value, formData.start_date, formData.end_date);
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value="">Select Resort</option>
@@ -842,7 +888,10 @@ export default function Invoices() {
                     type="date"
                     required
                     value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, start_date: e.target.value });
+                      fetchAvailableCategories(formData.resort_id, e.target.value, formData.end_date);
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -854,10 +903,67 @@ export default function Invoices() {
                     type="date"
                     required
                     value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, end_date: e.target.value });
+                      fetchAvailableCategories(formData.resort_id, formData.start_date, e.target.value);
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
+                
+                {/* Asset Categories Selection */}
+                {availableCategories.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Asset Categories *
+                    </label>
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
+                        <span className="text-xs text-gray-500">Select categories to include in this invoice</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedCategories.length === availableCategories.length) {
+                              setSelectedCategories([]);
+                            } else {
+                              setSelectedCategories([...availableCategories]);
+                            }
+                          }}
+                          className="text-xs text-indigo-600 hover:text-indigo-800"
+                        >
+                          {selectedCategories.length === availableCategories.length ? 'Deselect All' : 'Select All'}
+                        </button>
+                      </div>
+                      {availableCategories.map((category) => (
+                        <label key={category} className="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded">
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(category)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCategories([...selectedCategories, category]);
+                              } else {
+                                setSelectedCategories(selectedCategories.filter(c => c !== category));
+                              }
+                            }}
+                            className="mr-3 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                          />
+                          <span className="text-sm text-gray-700">{category.replace('_', ' ')}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {selectedCategories.length === 0 && (
+                      <p className="text-xs text-red-500 mt-1">Please select at least one category</p>
+                    )}
+                  </div>
+                )}
+
+                {formData.resort_id && formData.start_date && formData.end_date && availableCategories.length === 0 && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">No revenue data found for the selected resort and period.</p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Bank Account *
@@ -876,17 +982,29 @@ export default function Invoices() {
                     ))}
                   </select>
                 </div>
+
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-800">
+                    💡 Tip: You can create multiple invoices for the same resort and period by selecting different asset categories for each invoice.
+                  </p>
+                </div>
+
                 <div className="flex gap-3 mt-6">
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => {
+                      setShowModal(false);
+                      setSelectedCategories([]);
+                      setAvailableCategories([]);
+                    }}
                     className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    disabled={selectedCategories.length === 0}
+                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     Generate
                   </button>
