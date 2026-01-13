@@ -178,6 +178,7 @@ export default function Revenue() {
       const amount = parseFloat(formData.amount);
       
       // Calculate discount based on type
+      // Amount already includes discount, so extract discount portion: amount / (1 + rate) * rate
       let discountAmount = 0;
       let discountPercentage = 0;
       
@@ -185,7 +186,8 @@ export default function Revenue() {
         const discountValue = parseFloat(formData.discount_value);
         if (formData.discount_type === 'PERCENTAGE') {
           discountPercentage = discountValue;
-          discountAmount = (amount * discountValue) / 100;
+          // Amount already includes discount, so extract discount portion
+          discountAmount = amount / (1 + discountValue / 100) * (discountValue / 100);
         } else {
           // FIXED_AMOUNT
           discountAmount = discountValue;
@@ -203,7 +205,8 @@ export default function Revenue() {
         const taxServiceValue = parseFloat(formData.tax_service_value);
         if (formData.tax_service_type === 'PERCENTAGE') {
           taxServicePercentage = taxServiceValue;
-          taxServiceAmount = (amountAfterDiscount * taxServiceValue) / 100;
+          // Amount already includes tax, so extract tax portion: amount / (1 + rate) * rate
+          taxServiceAmount = amountAfterDiscount / (1 + taxServiceValue / 100) * (taxServiceValue / 100);
         } else {
           // FIXED_AMOUNT
           taxServiceAmount = taxServiceValue;
@@ -784,8 +787,9 @@ export default function Revenue() {
                           - Rp {(() => {
                             const amount = parseFloat(formData.amount);
                             const discountValue = parseFloat(formData.discount_value);
+                            // Amount already includes discount, so extract discount portion
                             const discount = formData.discount_type === 'PERCENTAGE'
-                              ? (amount * discountValue) / 100
+                              ? amount / (1 + discountValue / 100) * (discountValue / 100)
                               : discountValue;
                             return discount.toLocaleString('id-ID');
                           })()}
@@ -801,13 +805,15 @@ export default function Revenue() {
                           - Rp {(() => {
                             const amount = parseFloat(formData.amount);
                             const discountValue = parseFloat(formData.discount_value || '0');
+                            // Amount already includes discount, so extract discount portion
                             const discountAmount = formData.discount_type === 'PERCENTAGE'
-                              ? (amount * discountValue) / 100
+                              ? amount / (1 + discountValue / 100) * (discountValue / 100)
                               : discountValue;
                             const amountAfterDiscount = amount - discountAmount;
                             const taxServiceValue = parseFloat(formData.tax_service_value);
+                            // Amount already includes tax, so extract tax portion: amount / (1 + rate) * rate
                             const taxService = formData.tax_service_type === 'PERCENTAGE'
-                              ? (amountAfterDiscount * taxServiceValue) / 100
+                              ? amountAfterDiscount / (1 + taxServiceValue / 100) * (taxServiceValue / 100)
                               : taxServiceValue;
                             return taxService.toLocaleString('id-ID');
                           })()}
@@ -820,13 +826,15 @@ export default function Revenue() {
                         Rp {(() => {
                           const amount = parseFloat(formData.amount);
                           const discountValue = parseFloat(formData.discount_value || '0');
+                          // Amount already includes discount, so extract discount portion
                           const discountAmount = formData.discount_type === 'PERCENTAGE'
-                            ? (amount * discountValue) / 100
+                            ? amount / (1 + discountValue / 100) * (discountValue / 100)
                             : discountValue;
                           const amountAfterDiscount = amount - discountAmount;
                           const taxServiceValue = parseFloat(formData.tax_service_value || '0');
+                          // Amount already includes tax, so extract tax portion: amount / (1 + rate) * rate
                           const taxService = formData.tax_service_type === 'PERCENTAGE'
-                            ? (amountAfterDiscount * taxServiceValue) / 100
+                            ? amountAfterDiscount / (1 + taxServiceValue / 100) * (taxServiceValue / 100)
                             : taxServiceValue;
                           return (amountAfterDiscount - taxService).toLocaleString('id-ID');
                         })()}
