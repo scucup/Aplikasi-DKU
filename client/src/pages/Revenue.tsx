@@ -30,6 +30,7 @@ export default function Revenue() {
   const [resorts, setResorts] = useState<any[]>([]);
   const [availableCategories, setAvailableCategories] = useState<AssetCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<RevenueRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,35 +92,86 @@ export default function Revenue() {
 
   const fetchRecords = async () => {
     try {
-      const { data: revenueData, error: revenueError } = await supabase
-        .from('revenue_records')
-        .select('*, resort:resorts(name)')
-        .order('date', { ascending: false });
+      // Fetch all records using pagination to bypass 1000 limit
+      let allRecords: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: pageData, error: pageError } = await supabase
+          .from('revenue_records')
+          .select('*, resort:resorts(name)')
+          .order('date', { ascending: false })
+          .range(from, from + pageSize - 1);
 
-      if (revenueError) throw revenueError;
+        if (pageError) {
+          console.error('Error fetching revenue data:', pageError);
+          throw pageError;
+        }
+
+        if (pageData && pageData.length > 0) {
+          allRecords = [...allRecords, ...pageData];
+          from += pageSize;
+          hasMore = pageData.length === pageSize; // Continue if we got a full page
+        } else {
+          hasMore = false;
+        }
+      }
 
       // Fetch profit sharing configs
       const { data: profitConfigs, error: profitError } = await supabase
         .from('profit_sharing_configs')
         .select('*');
 
-      if (profitError) throw profitError;
+      if (profitError) {
+        console.error('Error fetching profit configs:', profitError);
+        throw profitError;
+      }
 
-      // Merge profit sharing data with revenue records
-      const recordsWithSharing = revenueData?.map(record => {
-        const config = profitConfigs?.find(
-          c => c.resort_id === record.resort_id && c.asset_category === record.asset_category
-        );
-        const netAmount = Number(record.amount) - (Number(record.discount) || 0) - (Number(record.tax_service) || 0);
-        const dkuPercentage = config?.dku_percentage || 0;
-        const dkuShare = (netAmount * dkuPercentage) / 100;
-        
-        return {
-          ...record,
-          dku_percentage: dkuPercentage,
-          dku_share: dkuShare,
-        };
-      }) || [];
+      // Merge profit sharing data with revenue records with error handling
+      const recordsWithSharing = allRecords.map(record => {
+        try {
+          const config = profitConfigs?.find(
+            c => c.resort_id === record.resort_id && c.asset_category === record.asset_category
+          );
+          
+          // Safe number conversion with fallback to 0
+          const amount = Number(record.amount) || 0;
+          const discount = Number(record.discount) || 0;
+          const taxService = Number(record.tax_service) || 0;
+          
+          // Calculate net amount safely
+          const netAmount = amount - discount - taxService;
+          
+          // Use default DKU percentage if config not found
+          const dkuPercentage = config?.dku_percentage || 0;
+          const dkuShare = (netAmount * dkuPercentage) / 100;
+          
+          // Log warning if config is missing (only for missing configs)
+          if (!config) {
+            console.warn(`Missing profit sharing config for resort: ${record.resort_id}, category: ${record.asset_category}`);
+          }
+          
+          return {
+            ...record,
+            netAmount: isNaN(netAmount) ? 0 : netAmount,
+            dkuShare: isNaN(dkuShare) ? 0 : dkuShare,
+            dkuPercentage: dkuPercentage,
+            hasConfig: !!config
+          };
+        } catch (error) {
+          console.error('Error processing record:', record.id, error);
+          // Return record with default values if processing fails
+          return {
+            ...record,
+            netAmount: Number(record.amount) || 0,
+            dkuShare: 0,
+            dkuPercentage: 0,
+            hasConfig: false
+          };
+        }
+      });
 
       setRecords(recordsWithSharing);
     } catch (error) {
@@ -156,19 +208,40 @@ export default function Revenue() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this revenue record?')) return;
-
+  const handleDelete = async (recordId: string, billingNo: string) => {
     try {
+      // Konfirmasi sebelum menghapus
+      const isConfirmed = window.confirm(
+        `Are you sure you want to delete revenue record "${billingNo || 'No Billing Number'}"?\n\nThis action cannot be undone.`
+      );
+      
+      if (!isConfirmed) {
+        return;
+      }
+      
+      setDeletingId(recordId);
+      
+      // Hapus dari database
       const { error } = await supabase
         .from('revenue_records')
         .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      fetchRecords();
-    } catch (error: any) {
-      alert('Error deleting revenue record: ' + error.message);
+        .eq('id', recordId);
+      
+      if (error) {
+        console.error('Database error:', error);
+        throw new Error(`Failed to delete record: ${error.message}`);
+      }
+      
+      // Refresh data setelah berhasil delete
+      await fetchRecords();
+      alert('Revenue record deleted successfully!');
+      
+    } catch (error) {
+      console.error('Error deleting revenue record:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -344,16 +417,20 @@ export default function Revenue() {
   // Get filtered records
   const filteredRecords = records.filter(filterRecords);
 
+  // Check if any filter is active
+  const isFilterActive = searchTerm || selectedResort !== 'all' || selectedCategory !== 'all' || startDate || endDate;
+
   // Calculate totals based on filtered records
   const totalRevenue = filteredRecords.reduce((sum, record) => sum + Number(record.amount), 0);
   const totalNetAmount = filteredRecords.reduce((sum, record) => {
     const netAmount = Number(record.amount) - (Number(record.discount) || 0) - (Number(record.tax_service) || 0);
     return sum + netAmount;
   }, 0);
-  const totalDkuShare = filteredRecords.reduce((sum, record) => sum + (record.dku_share || 0), 0);
-
-  // Check if any filter is active
-  const isFilterActive = searchTerm || selectedResort !== 'all' || selectedCategory !== 'all' || startDate || endDate;
+  const totalDkuShare = filteredRecords.reduce((sum, record) => {
+    // Use the calculated dkuShare from the record, or calculate it if missing
+    const dkuShare = record.dkuShare || 0;
+    return sum + Number(dkuShare);
+  }, 0);
 
   return (
     <Layout>
@@ -570,6 +647,11 @@ export default function Revenue() {
                             </span>
                             <div className="text-xs text-green-300/70">
                               ({dkuPercentage}%)
+                              {!(record as any).hasConfig && (
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  No Config
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -586,13 +668,21 @@ export default function Revenue() {
                                 </svg>
                               </button>
                               <button
-                                onClick={() => handleDelete(record.id)}
-                                className="p-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg transition-colors"
+                                onClick={() => handleDelete(record.id, record.billing_no || '')}
+                                disabled={deletingId === record.id}
+                                className="p-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Delete"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
+                                {deletingId === record.id ? (
+                                  <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                )}
                               </button>
                             </div>
                           </td>
