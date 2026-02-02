@@ -389,14 +389,14 @@ export default function Dashboard() {
           const netAmount = amount - discount - taxService;
           
           // Use default DKU percentage if config not found
-          const dkuPercentage = config?.dku_percentage || 0;
+          const dkuPercentage = Number(config?.dku_percentage) || 0;
           const dkuShare = (netAmount * dkuPercentage) / 100;
           
           return {
             ...record,
             netAmount: isNaN(netAmount) ? 0 : netAmount,
-            dkuShare: isNaN(dkuShare) ? 0 : dkuShare,
-            dkuPercentage: dkuPercentage,
+            dku_share: isNaN(dkuShare) ? 0 : dkuShare,
+            dku_percentage: dkuPercentage,
             hasConfig: !!config
           };
         } catch (error) {
@@ -424,7 +424,7 @@ export default function Dashboard() {
       // Calculate totals - SAME AS REVENUE PAGE
       const totalRevenue = filteredRecords.reduce((sum, record) => sum + Number(record.amount), 0);
       const totalNetAmount = filteredRecords.reduce((sum, record) => sum + (record.netAmount || 0), 0);
-      const totalDkuShare = filteredRecords.reduce((sum, record) => sum + (record.dkuShare || 0), 0);
+      const totalDkuShare = filteredRecords.reduce((sum, record) => sum + (record.dku_share || 0), 0);
       
       console.log('💰 Totals (SAME CALCULATION AS REVENUE PAGE):', {
         recordCount: filteredRecords.length,
@@ -444,7 +444,7 @@ export default function Dashboard() {
       filteredRecords?.forEach((record) => {
         // Use pre-calculated values from recordsWithSharing (SAME AS REVENUE PAGE)
         const netAmount = record.netAmount || 0;
-        const dkuAmount = record.dkuShare || 0;
+        const dkuAmount = record.dku_share || 0;
         
         // Parse date as UTC to avoid timezone issues
         const dateParts = record.date.split('-');
@@ -456,7 +456,7 @@ export default function Dashboard() {
           c => c.resort_id === record.resort_id && c.asset_category === record.asset_category
         );
         
-        const resortPercentage = config?.resort_percentage || 0;
+        const resortPercentage = Number(config?.resort_percentage) || 0;
         const resortAmount = (netAmount * resortPercentage) / 100;
 
         // Monthly aggregation

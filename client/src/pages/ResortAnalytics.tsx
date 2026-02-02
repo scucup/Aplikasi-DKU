@@ -155,14 +155,14 @@ export default function ResortAnalytics() {
           const taxService = Number(record.tax_service) || 0;
           
           const netAmount = amount - discount - taxService;
-          const dkuPercentage = config?.dku_percentage || 0;
+          const dkuPercentage = Number(config?.dku_percentage) || 0;
           const dkuShare = (netAmount * dkuPercentage) / 100;
           
           return {
             ...record,
             netAmount: isNaN(netAmount) ? 0 : netAmount,
-            dkuShare: isNaN(dkuShare) ? 0 : dkuShare,
-            dkuPercentage: dkuPercentage,
+            dku_share: isNaN(dkuShare) ? 0 : dkuShare,
+            dku_percentage: dkuPercentage,
             hasConfig: !!config
           };
         } catch (error) {
@@ -228,7 +228,7 @@ export default function ResortAnalytics() {
         // Revenue calculation - SAME LOGIC AS REVENUE PAGE
         const resortRevenue = filteredRecords.filter(r => r.resort_id === resort.id);
         const totalRevenue = resortRevenue.reduce((sum, record) => sum + Number(record.amount), 0);
-        const totalDkuShare = resortRevenue.reduce((sum, record) => sum + (record.dkuShare || 0), 0);
+        const totalDkuShare = resortRevenue.reduce((sum, record) => sum + (record.dku_share || 0), 0);
 
         // Assets calculation
         const resortAssets = assetsData?.filter(a => a.resort_id === resort.id) || [];

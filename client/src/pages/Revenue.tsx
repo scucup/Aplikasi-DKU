@@ -141,6 +141,8 @@ export default function Revenue() {
         throw profitError;
       }
 
+      console.log('✅ Profit Configs Loaded:', profitConfigs?.length, 'configs');
+
       // Merge profit sharing data with revenue records with error handling
       const recordsWithSharing = allRecords.map(record => {
         try {
@@ -157,14 +159,27 @@ export default function Revenue() {
           const netAmount = amount - discount - taxService;
           
           // Use default DKU percentage if config not found
-          const dkuPercentage = config?.dku_percentage || 0;
+          const dkuPercentage = Number(config?.dku_percentage) || 0;
           const dkuShare = (netAmount * dkuPercentage) / 100;
+          
+          // Debug first record
+          if (record.id === allRecords[0]?.id) {
+            console.log('🔍 First Record Debug:', {
+              resort_id: record.resort_id,
+              asset_category: record.asset_category,
+              config_found: !!config,
+              dku_percentage_raw: config?.dku_percentage,
+              dku_percentage_converted: dkuPercentage,
+              netAmount,
+              dkuShare
+            });
+          }
           
           return {
             ...record,
             netAmount: isNaN(netAmount) ? 0 : netAmount,
-            dkuShare: isNaN(dkuShare) ? 0 : dkuShare,
-            dkuPercentage: dkuPercentage,
+            dku_share: isNaN(dkuShare) ? 0 : dkuShare,
+            dku_percentage: dkuPercentage,
             hasConfig: !!config
           };
         } catch (error) {
