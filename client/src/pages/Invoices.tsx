@@ -493,7 +493,7 @@ export default function Invoices() {
     }
   };
 
-  const handleDownloadPDF = async (invoice: Invoice) => {
+  const handleViewPDF = async (invoice: Invoice) => {
     try {
       // Fetch line items
       const { data: items } = await supabase
@@ -540,7 +540,14 @@ export default function Invoices() {
       const logoUrl = settings.company_logo_url || '';
 
       const doc = await generateInvoicePDF(invoice, items || [], bankData, logoUrl);
-      doc.save(`${invoice.invoice_number}.pdf`);
+      
+      // Open PDF in new tab instead of downloading
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      window.open(pdfUrl, '_blank');
+      
+      // Clean up the URL after a delay
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
     } catch (error: any) {
       alert('Error generating PDF: ' + error.message);
     }
@@ -787,9 +794,9 @@ export default function Invoices() {
                             👁️
                           </button>
                           <button
-                            onClick={() => handleDownloadPDF(invoice)}
+                            onClick={() => handleViewPDF(invoice)}
                             className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs"
-                            title="Download PDF"
+                            title="View PDF"
                           >
                             📄
                           </button>

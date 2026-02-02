@@ -13,6 +13,28 @@ export default function Layout({ children }: LayoutProps) {
   const [pendingExpensesCount, setPendingExpensesCount] = useState(0);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [companyLogo, setCompanyLogo] = useState<string>('');
+
+  useEffect(() => {
+    fetchCompanyLogo();
+  }, []);
+
+  const fetchCompanyLogo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('setting_value')
+        .eq('setting_key', 'company_logo_url')
+        .single();
+
+      if (error) throw error;
+      if (data?.setting_value) {
+        setCompanyLogo(data.setting_value);
+      }
+    } catch (error) {
+      console.error('Error fetching company logo:', error);
+    }
+  };
 
   const getNavigation = () => {
     const baseNav = [{ name: 'Dashboard', path: '/dashboard', icon: '📊' }];
@@ -142,7 +164,15 @@ export default function Layout({ children }: LayoutProps) {
                 </svg>
               </button>
               
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">DKU Adventure</h1>
+              {companyLogo ? (
+                <img 
+                  src={companyLogo} 
+                  alt="Company Logo" 
+                  className="h-8 sm:h-10 md:h-12 w-auto object-contain"
+                />
+              ) : (
+                <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">DKU Adventure</h1>
+              )}
               
               {/* Desktop Navigation */}
               <nav className="hidden lg:flex gap-1 ml-6">
@@ -211,7 +241,15 @@ export default function Layout({ children }: LayoutProps) {
       <div className={`fixed top-0 left-0 h-full w-72 max-w-[85vw] bg-dark-purple-900/95 backdrop-blur-md border-r border-purple-500/30 z-50 transform transition-transform duration-300 ease-in-out lg:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {/* Drawer Header */}
         <div className="flex items-center justify-between p-4 border-b border-purple-500/30">
-          <h2 className="text-lg font-bold text-white">Menu</h2>
+          {companyLogo ? (
+            <img 
+              src={companyLogo} 
+              alt="Company Logo" 
+              className="h-8 w-auto object-contain"
+            />
+          ) : (
+            <h2 className="text-lg font-bold text-white">Menu</h2>
+          )}
           <button
             onClick={() => setMobileMenuOpen(false)}
             className="p-2 rounded-lg bg-purple-600/30 border border-purple-500/50 text-white"
