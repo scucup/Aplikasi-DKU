@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
+import { fetchAllRevenueRecords, fetchProfitConfigs, processRevenueWithProfitSharing } from '../lib/profitSharing';
 
 type AssetCategory = 'ATV' | 'UTV' | 'SEA_SPORT' | 'POOL_TOYS' | 'LINE_SPORT';
 
@@ -87,11 +88,13 @@ export default function Revenue() {
 
       if (error) throw error;
 
+      // Remove duplicates using Set (for resorts with multiple configs per category)
       const categories = data?.map(config => config.asset_category) || [];
-      setAvailableCategories(categories as AssetCategory[]);
+      const uniqueCategories = [...new Set(categories)];
+      setAvailableCategories(uniqueCategories as AssetCategory[]);
       
       // Reset asset_category if current selection is not available
-      if (formData.asset_category && !categories.includes(formData.asset_category)) {
+      if (formData.asset_category && !uniqueCategories.includes(formData.asset_category)) {
         setFormData(prev => ({ ...prev, asset_category: '' }));
       }
     } catch (error) {
@@ -102,100 +105,9 @@ export default function Revenue() {
 
   const fetchRecords = async () => {
     try {
-      // Fetch all records using pagination to bypass 1000 limit
-      let allRecords: any[] = [];
-      let from = 0;
-      const pageSize = 1000;
-      let hasMore = true;
-      
-      while (hasMore) {
-        const { data: pageData, error: pageError } = await supabase
-          .from('revenue_records')
-          .select('*, resort:resorts(name)')
-          .order('date', { ascending: false })
-          .order('id', { ascending: true }) // Add secondary sort by ID to ensure consistent ordering
-          .range(from, from + pageSize - 1);
-
-        if (pageError) {
-          console.error('Error fetching revenue data:', pageError);
-          throw pageError;
-        }
-
-        if (pageData && pageData.length > 0) {
-          allRecords = [...allRecords, ...pageData];
-          from += pageSize;
-          hasMore = pageData.length === pageSize; // Continue if we got a full page
-        } else {
-          hasMore = false;
-        }
-      }
-
-      // Fetch profit sharing configs
-      // Fetch profit sharing configs - only required columns
-      const { data: profitConfigs, error: profitError } = await supabase
-        .from('profit_sharing_configs')
-        .select('id, resort_id, asset_category, dku_percentage, resort_percentage, effective_from');
-
-      if (profitError) {
-        console.error('Error fetching profit configs:', profitError);
-        throw profitError;
-      }
-
-      console.log('✅ Profit Configs Loaded:', profitConfigs?.length, 'configs');
-
-      // Merge profit sharing data with revenue records with error handling
-      const recordsWithSharing = allRecords.map(record => {
-        try {
-          const config = profitConfigs?.find(
-            c => c.resort_id === record.resort_id && c.asset_category === record.asset_category
-          );
-          
-          // Safe number conversion with fallback to 0
-          const amount = Number(record.amount) || 0;
-          const discount = Number(record.discount) || 0;
-          const taxService = Number(record.tax_service) || 0;
-          
-          // Calculate net amount safely
-          const netAmount = amount - discount - taxService;
-          
-          // Use default DKU percentage if config not found
-          const dkuPercentage = Number(config?.dku_percentage) || 0;
-          const dkuShare = (netAmount * dkuPercentage) / 100;
-          
-          // Debug first record
-          if (record.id === allRecords[0]?.id) {
-            console.log('🔍 First Record Debug:', {
-              resort_id: record.resort_id,
-              asset_category: record.asset_category,
-              config_found: !!config,
-              dku_percentage_raw: config?.dku_percentage,
-              dku_percentage_converted: dkuPercentage,
-              netAmount,
-              dkuShare
-            });
-          }
-          
-          return {
-            ...record,
-            netAmount: isNaN(netAmount) ? 0 : netAmount,
-            dku_share: isNaN(dkuShare) ? 0 : dkuShare,
-            dku_percentage: dkuPercentage,
-            hasConfig: !!config
-          };
-        } catch (error) {
-          console.error('Error processing record:', record.id, error);
-          // Return record with default values if processing fails
-          return {
-            ...record,
-            netAmount: Number(record.amount) || 0,
-            dkuShare: 0,
-            dkuPercentage: 0,
-            hasConfig: false
-          };
-        }
-      });
-
-      console.log(`✅ Processed ${recordsWithSharing.length} revenue records`);
+      const allRecords = await fetchAllRevenueRecords(supabase);
+      const profitConfigs = await fetchProfitConfigs(supabase);
+      const recordsWithSharing = processRevenueWithProfitSharing(allRecords, profitConfigs);
       setRecords(recordsWithSharing);
     } catch (error) {
       console.error('Error fetching revenue records:', error);

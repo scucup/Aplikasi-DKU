@@ -8,6 +8,7 @@ import DonutChart from '../components/charts/DonutChart';
 import AreaChart from '../components/charts/AreaChart';
 import BarChart from '../components/charts/BarChart';
 import LineChart from '../components/charts/LineChart';
+import { fetchProfitConfigs, processRevenueWithProfitSharing } from '../lib/profitSharing';
 
 interface DashboardStats {
   totalResorts: number;
@@ -189,10 +190,6 @@ export default function Dashboard() {
           }
         }
         
-        console.log(`📊 Fetched ${allRevenueMonths.length} revenue records and ${allExpenseMonths.length} expense records`);
-        
-        console.log(`📊 Fetched ${allRevenueMonths.length} revenue records and ${allExpenseMonths.length} expense records`);
-        
         // Extract unique months
         const allMonthsSet = new Set<string>();
         
@@ -228,7 +225,6 @@ export default function Dashboard() {
         
         // Sort descending (newest first)
         const sortedMonths = Array.from(allMonthsSet).sort().reverse();
-        console.log('📅 Available months for dropdown:', sortedMonths);
         setAvailableStartMonths(sortedMonths);
       }
       
@@ -254,14 +250,6 @@ export default function Dashboard() {
         endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
         
         monthsBack = 1;
-        
-        console.log('🔍 Single month view:', {
-          startingMonth,
-          year,
-          month,
-          startDateUTC: startDate.toISOString(),
-          endDateUTC: endDate.toISOString()
-        });
       } else if (startingMonth && selectedPeriod) {
         // User selected a specific starting month with period
         const [year, month] = startingMonth.split('-').map(Number);
@@ -276,15 +264,6 @@ export default function Dashboard() {
         // Example: Jan 2025 (month=1) + 12 months = Dec 2025
         // Date.UTC(2025, 0 + 12, 0) = Date.UTC(2025, 12, 0) = last day of Dec 2025
         endDate = new Date(Date.UTC(year, month - 1 + monthsBack, 0, 23, 59, 59, 999));
-        
-        console.log('🔍 Starting month parsing:', {
-          startingMonth,
-          year,
-          month,
-          monthsBack,
-          startDateUTC: startDate.toISOString(),
-          endDateUTC: endDate.toISOString()
-        });
       } else if (selectedPeriod) {
         // Default: from current month backwards
         monthsBack = selectedPeriod === '6m' ? 6 : 12;
@@ -296,14 +275,6 @@ export default function Dashboard() {
         endDate = now;
         monthsBack = 1;
       }
-
-      console.log('📅 Date Range Calculation:', {
-        selectedPeriod,
-        startingMonth,
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-        monthsBack
-      });
 
       // Fetch resorts
       const { data: resorts, count: resortsCount } = await supabase
@@ -336,8 +307,6 @@ export default function Dashboard() {
       const startDateStr = formatDate(startDate);
       const endDateStr = formatDate(endDate);
       
-      console.log('📅 Query date range:', { startDateStr, endDateStr });
-      
       // Fetch ALL records with pagination - SAME QUERY AS REVENUE PAGE
       while (hasMore) {
         const { data: pageData, error: pageError } = await supabase
@@ -360,78 +329,23 @@ export default function Dashboard() {
           hasMore = false;
         }
       }
-      
-      console.log(`📊 Fetched ${allRevenueRecords.length} total revenue records`);
 
-      // Fetch profit sharing configs - SAME AS REVENUE PAGE - only required columns
-      const { data: profitConfigs, error: profitError } = await supabase
-        .from('profit_sharing_configs')
-        .select('id, resort_id, asset_category, dku_percentage, resort_percentage, effective_from');
+      // Fetch profit sharing configs using utility function
+      const profitConfigs = await fetchProfitConfigs(supabase);
 
-      if (profitError) {
-        console.error('Error fetching profit configs:', profitError);
-        throw profitError;
-      }
+      // Process records with profit sharing data using utility function
+      const recordsWithSharing = processRevenueWithProfitSharing(allRevenueRecords, profitConfigs);
 
-      // Process records with profit sharing data - EXACT SAME LOGIC AS REVENUE PAGE
-      const recordsWithSharing = allRevenueRecords.map(record => {
-        try {
-          const config = profitConfigs?.find(
-            c => c.resort_id === record.resort_id && c.asset_category === record.asset_category
-          );
-          
-          // Safe number conversion with fallback to 0
-          const amount = Number(record.amount) || 0;
-          const discount = Number(record.discount) || 0;
-          const taxService = Number(record.tax_service) || 0;
-          
-          // Calculate net amount safely
-          const netAmount = amount - discount - taxService;
-          
-          // Use default DKU percentage if config not found
-          const dkuPercentage = Number(config?.dku_percentage) || 0;
-          const dkuShare = (netAmount * dkuPercentage) / 100;
-          
-          return {
-            ...record,
-            netAmount: isNaN(netAmount) ? 0 : netAmount,
-            dku_share: isNaN(dkuShare) ? 0 : dkuShare,
-            dku_percentage: dkuPercentage,
-            hasConfig: !!config
-          };
-        } catch (error) {
-          console.error('Error processing record:', record.id, error);
-          return {
-            ...record,
-            netAmount: Number(record.amount) || 0,
-            dkuShare: 0,
-            dkuPercentage: 0,
-            hasConfig: false
-          };
-        }
-      });
-
-      console.log(`✅ Processed ${recordsWithSharing.length} revenue records`);
-      
       // Filter by date range - SAME AS REVENUE PAGE FILTER
       const filteredRecords = recordsWithSharing.filter(record => {
         const recordDate = new Date(record.date);
         return recordDate >= startDate && recordDate <= endDate;
       });
-      
-      console.log(`📊 Filtered to ${filteredRecords.length} records for period ${startDateStr} to ${endDateStr}`);
 
       // Calculate totals - SAME AS REVENUE PAGE
       const totalRevenue = filteredRecords.reduce((sum, record) => sum + Number(record.amount), 0);
       const totalNetAmount = filteredRecords.reduce((sum, record) => sum + (record.netAmount || 0), 0);
       const totalDkuShare = filteredRecords.reduce((sum, record) => sum + (record.dku_share || 0), 0);
-      
-      console.log('💰 Totals (SAME CALCULATION AS REVENUE PAGE):', {
-        recordCount: filteredRecords.length,
-        totalRevenue,
-        totalNetAmount,
-        totalDkuShare
-      });
       
       // Now build monthly aggregations from filtered records
       const monthlyRevenue: { [key: string]: number } = {};
@@ -442,22 +356,19 @@ export default function Dashboard() {
       const revenueByCatByMonth: { [month: string]: { [cat: string]: number } } = {};
 
       filteredRecords?.forEach((record) => {
-        // Use pre-calculated values from recordsWithSharing (SAME AS REVENUE PAGE)
+        // Use pre-calculated values from recordsWithSharing (already processed by utility)
         const netAmount = record.netAmount || 0;
         const dkuAmount = record.dku_share || 0;
+        const dkuPercentage = record.dku_percentage || 0;
+        
+        // Calculate resort share
+        const resortAmount = netAmount - dkuAmount;
         
         // Parse date as UTC to avoid timezone issues
         const dateParts = record.date.split('-');
         const recordDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
         const monthKey = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
         const monthYearLabel = getMonthYearLabel(recordDate);
-        
-        const config = profitConfigs?.find(
-          c => c.resort_id === record.resort_id && c.asset_category === record.asset_category
-        );
-        
-        const resortPercentage = Number(config?.resort_percentage) || 0;
-        const resortAmount = (netAmount * resortPercentage) / 100;
 
         // Monthly aggregation
         monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + netAmount;
@@ -503,15 +414,11 @@ export default function Dashboard() {
         .from('expenses')
         .select('amount, status, date, category');
       
-      console.log(`📊 Fetched ${allExpensesData?.length || 0} total expense records`);
-      
       // Filter by date range - SAME AS EXPENSES PAGE
       const filteredExpenses = allExpensesData?.filter(expense => {
         const expenseDate = new Date(expense.date);
         return expenseDate >= startDate && expenseDate <= endDate;
       }) || [];
-      
-      console.log(`📊 Filtered to ${filteredExpenses.length} expense records for period`);
       
       // Calculate totals - SAME AS EXPENSES PAGE (APPROVED only for net profit)
       const approvedExpenses = filteredExpenses
@@ -519,13 +426,6 @@ export default function Dashboard() {
         .reduce((sum, e) => sum + Number(e.amount), 0);
       
       const totalExpensesAll = filteredExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-      
-      console.log('💰 Expenses totals:', {
-        filteredCount: filteredExpenses.length,
-        approvedCount: filteredExpenses.filter(e => e.status === 'APPROVED').length,
-        approvedExpenses,
-        totalExpensesAll
-      });
 
       const monthlyExpenses: { [key: string]: number } = {};
       const expensesByCat: { [key: string]: number } = {};
@@ -722,17 +622,6 @@ export default function Dashboard() {
       // Calculate financial metrics
       const netProfit = totalDkuShare - approvedExpenses;
       const profitMargin = totalDkuShare > 0 ? (netProfit / totalDkuShare) * 100 : 0;
-
-      console.log('💰 Dashboard Financial Summary:', {
-        period: selectedPeriod,
-        startingMonth,
-        dateRange: `${startDate.toISOString().split('T')[0]} to ${selectedPeriod === 'all' || !startingMonth ? 'now' : endDate.toISOString().split('T')[0]}`,
-        totalRevenue,
-        totalDkuShare,
-        approvedExpenses,
-        netProfit,
-        profitMargin: profitMargin.toFixed(2) + '%'
-      });
 
       setStats({
         totalResorts: resortsCount || 0,

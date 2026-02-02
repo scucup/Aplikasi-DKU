@@ -40,14 +40,13 @@ The application uses a modern web architecture with clear separation of concerns
 - React Router for client-side routing
 - Zustand for state management
 - Recharts for dashboard visualizations
-- React-PDF for invoice generation
-- Axios for API communication
+- jsPDF for invoice generation
+- Supabase JS Client for direct database access
 
 **Backend:**
-- Node.js with Express framework
-- TypeScript for type safety
-- Prisma ORM for database access
-- JWT for authentication
+- No backend server (frontend-only architecture)
+- Supabase for database, authentication, and storage
+- Row Level Security (RLS) policies for authorization
 - bcrypt for password hashing
 - express-validator for input validation
 - PDFKit for server-side PDF generation

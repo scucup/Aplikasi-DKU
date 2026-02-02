@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 import AreaChart from '../components/charts/AreaChart';
 import LineChart from '../components/charts/LineChart';
+import { fetchProfitConfigs, processRevenueWithProfitSharing } from '../lib/profitSharing';
 
 interface ResortPerformance {
   resort_id: string;
@@ -133,49 +134,11 @@ export default function ResortAnalytics() {
         }
       }
 
-      // Fetch profit sharing configs - SAME AS REVENUE PAGE
-      const { data: profitConfigs, error: profitError } = await supabase
-        .from('profit_sharing_configs')
-        .select('id, resort_id, asset_category, dku_percentage, resort_percentage, effective_from');
+      // Fetch profit sharing configs using utility function
+      const profitConfigs = await fetchProfitConfigs(supabase);
 
-      if (profitError) {
-        console.error('Error fetching profit configs:', profitError);
-        throw profitError;
-      }
-
-      // Process records with profit sharing data - EXACT SAME LOGIC AS REVENUE PAGE
-      const recordsWithSharing = allRevenueRecords.map(record => {
-        try {
-          const config = profitConfigs?.find(
-            c => c.resort_id === record.resort_id && c.asset_category === record.asset_category
-          );
-          
-          const amount = Number(record.amount) || 0;
-          const discount = Number(record.discount) || 0;
-          const taxService = Number(record.tax_service) || 0;
-          
-          const netAmount = amount - discount - taxService;
-          const dkuPercentage = Number(config?.dku_percentage) || 0;
-          const dkuShare = (netAmount * dkuPercentage) / 100;
-          
-          return {
-            ...record,
-            netAmount: isNaN(netAmount) ? 0 : netAmount,
-            dku_share: isNaN(dkuShare) ? 0 : dkuShare,
-            dku_percentage: dkuPercentage,
-            hasConfig: !!config
-          };
-        } catch (error) {
-          console.error('Error processing record:', record.id, error);
-          return {
-            ...record,
-            netAmount: Number(record.amount) || 0,
-            dkuShare: 0,
-            dkuPercentage: 0,
-            hasConfig: false
-          };
-        }
-      });
+      // Process records with profit sharing data using utility function
+      const recordsWithSharing = processRevenueWithProfitSharing(allRevenueRecords, profitConfigs);
 
       // Filter by date range - SAME AS REVENUE PAGE
       const filteredRecords = recordsWithSharing.filter(record => {
@@ -566,7 +529,7 @@ export default function ResortAnalytics() {
                   <div className="space-y-6 mt-8">
                     <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30">
                       <AreaChart
-                        data={resortMonthly.map(m => ({ name: m.month, dkuShare: m.dkuShare, expenses: m.expenses }))}
+                        data={resortMonthly.map((m: any) => ({ name: m.month, dkuShare: m.dkuShare, expenses: m.expenses }))}
                         title="Monthly DKU Share vs Expenses"
                         dataKeys={[
                           { key: 'dkuShare', color: '#8b5cf6', name: 'DKU Share' },
@@ -577,7 +540,7 @@ export default function ResortAnalytics() {
 
                     <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30">
                       <LineChart
-                        data={resortMonthly.map(m => ({ name: m.month, value: m.profit }))}
+                        data={resortMonthly.map((m: any) => ({ name: m.month, value: m.profit }))}
                         title="Monthly Profit Trend"
                         color="#10b981"
                       />
