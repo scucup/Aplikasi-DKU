@@ -93,7 +93,7 @@ export default function Dashboard() {
   const [monthlyResortRevenueData, setMonthlyResortRevenueData] = useState<{ [month: string]: ResortRevenue[] }>({});
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPeriod, setSelectedPeriod] = useState<'6m' | '12m'>('6m');
+  const [selectedPeriod, setSelectedPeriod] = useState<'all' | '6m' | '12m'>('6m');
   const [selectedCardPeriod, setSelectedCardPeriod] = useState<string>('all');
 
   const isFinancialUser = profile?.role === 'ADMIN' || profile?.role === 'MANAGER';
@@ -135,8 +135,25 @@ export default function Dashboard() {
     try {
       // Calculate date range
       const now = new Date();
-      const monthsBack = selectedPeriod === '6m' ? 6 : 12;
-      const startDate = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1);
+      let startDate: Date;
+      let monthsBack: number;
+      
+      if (selectedPeriod === 'all') {
+        // For "All Time", fetch from earliest possible date (e.g., 2020-01-01)
+        startDate = new Date(2020, 0, 1);
+        monthsBack = Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+      } else {
+        monthsBack = selectedPeriod === '6m' ? 6 : 12;
+        startDate = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1);
+      }
+      
+      console.log('📅 Dashboard Date Range:', {
+        period: selectedPeriod,
+        now: now.toISOString(),
+        monthsBack,
+        startDate: startDate.toISOString(),
+        startDateLocal: startDate.toLocaleDateString('id-ID')
+      });
 
       // Fetch resorts
       const { data: resorts, count: resortsCount } = await supabase
@@ -152,11 +169,41 @@ export default function Dashboard() {
       const maintenanceCount = assets?.filter(a => a.status === 'MAINTENANCE').length || 0;
       const utilizationRate = assets && assets.length > 0 ? (activeCount / assets.length) * 100 : 0;
 
-      // Fetch revenue records
-      const { data: revenueRecords } = await supabase
-        .from('revenue_records')
-        .select('resort_id, amount, discount, tax_service, asset_category, date')
-        .gte('date', startDate.toISOString());
+      // Fetch revenue records with pagination to get ALL records
+      let allRevenueRecords: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: pageData, error: pageError } = await supabase
+          .from('revenue_records')
+          .select('resort_id, amount, discount, tax_service, asset_category, date')
+          .gte('date', startDate.toISOString())
+          .order('date', { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (pageError) {
+          console.error('Error fetching revenue data:', pageError);
+          throw pageError;
+        }
+
+        if (pageData && pageData.length > 0) {
+          allRevenueRecords = [...allRevenueRecords, ...pageData];
+          from += pageSize;
+          hasMore = pageData.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      const revenueRecords = allRevenueRecords;
+      
+      console.log('💰 Revenue Records Fetched:', {
+        total: revenueRecords?.length || 0,
+        dateRange: `${startDate.toISOString().split('T')[0]} to now`,
+        sample: revenueRecords?.slice(0, 3).map(r => ({ date: r.date, amount: r.amount }))
+      });
 
       const { data: profitConfigs } = await supabase
         .from('profit_sharing_configs')
@@ -175,7 +222,9 @@ export default function Dashboard() {
 
             revenueRecords?.forEach((record) => {
         const netAmount = Number(record.amount) - (Number(record.discount) || 0) - (Number(record.tax_service) || 0);
-        const recordDate = new Date(record.date);
+        // Parse date as UTC to avoid timezone issues
+        const dateParts = record.date.split('-');
+        const recordDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
         const monthKey = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
         const monthYearLabel = getMonthYearLabel(recordDate);
         
@@ -228,6 +277,13 @@ export default function Dashboard() {
         totalRevenue += netAmount;
         totalDkuShare += dkuAmount;
       });
+      
+      console.log('📊 Monthly Aggregation:', {
+        monthlyRevenue,
+        monthlyDkuShare,
+        totalRevenue,
+        totalDkuShare
+      });
 
       // Fetch expenses
       const { data: expensesData } = await supabase
@@ -239,24 +295,30 @@ export default function Dashboard() {
       const expensesByCat: { [key: string]: number } = {};
       const expensesByCatByMonth: { [month: string]: { [cat: string]: number } } = {};
       let approvedExpenses = 0;
+      let totalExpensesAll = 0; // Track all expenses regardless of status
 
             expensesData?.forEach((expense) => {
+        const expenseAmount = Number(expense.amount);
+        totalExpensesAll += expenseAmount; // Count all expenses
+        
         if (expense.status === 'APPROVED') {
-          const expenseDate = new Date(expense.date);
+          // Parse date as UTC to avoid timezone issues
+          const dateParts = expense.date.split('-');
+          const expenseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
           const monthKey = `${expenseDate.getFullYear()}-${String(expenseDate.getMonth() + 1).padStart(2, '0')}`;
           const monthYearLabel = getMonthYearLabel(expenseDate);
-          monthlyExpenses[monthKey] = (monthlyExpenses[monthKey] || 0) + Number(expense.amount);
-          approvedExpenses += Number(expense.amount);
+          monthlyExpenses[monthKey] = (monthlyExpenses[monthKey] || 0) + expenseAmount;
+          approvedExpenses += expenseAmount;
           
           // Group by category
           const cat = expense.category || 'OTHER';
-          expensesByCat[cat] = (expensesByCat[cat] || 0) + Number(expense.amount);
+          expensesByCat[cat] = (expensesByCat[cat] || 0) + expenseAmount;
           
           // Group by category by month (using month-year label)
           if (!expensesByCatByMonth[monthYearLabel]) {
             expensesByCatByMonth[monthYearLabel] = {};
           }
-          expensesByCatByMonth[monthYearLabel][cat] = (expensesByCatByMonth[monthYearLabel][cat] || 0) + Number(expense.amount);
+          expensesByCatByMonth[monthYearLabel][cat] = (expensesByCatByMonth[monthYearLabel][cat] || 0) + expenseAmount;
         }
       });
 
@@ -286,7 +348,9 @@ export default function Dashboard() {
 
       maintenanceRecords?.forEach((record) => {
         const cost = (Number(record.labor_cost) || 0) + (Number(record.sparepart_cost) || 0);
-        const recordDate = new Date(record.start_date);
+        // Parse date as UTC to avoid timezone issues
+        const dateParts = record.start_date.split('-');
+        const recordDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
         const monthKey = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
         monthlyMaintenance[monthKey] = (monthlyMaintenance[monthKey] || 0) + cost;
         totalMaintenanceCost += cost;
@@ -296,8 +360,32 @@ export default function Dashboard() {
       const monthlyDataArray: MonthlyData[] = [];
       const monthlyStatsData: MonthlyStats = {};
       
-      for (let i = 0; i < monthsBack; i++) {
-        const date = new Date(now.getFullYear(), now.getMonth() - monthsBack + i + 1, 1);
+      // For "All Time", we need to dynamically determine the months to display
+      let monthsToDisplay: Date[] = [];
+      
+      if (selectedPeriod === 'all') {
+        // Get all unique months from the data
+        const uniqueMonths = new Set<string>();
+        Object.keys(monthlyRevenue).forEach(key => uniqueMonths.add(key));
+        Object.keys(monthlyExpenses).forEach(key => uniqueMonths.add(key));
+        Object.keys(monthlyMaintenance).forEach(key => uniqueMonths.add(key));
+        
+        // Convert to dates and sort
+        monthsToDisplay = Array.from(uniqueMonths)
+          .map(key => {
+            const [year, month] = key.split('-').map(Number);
+            return new Date(year, month - 1, 1);
+          })
+          .sort((a, b) => a.getTime() - b.getTime());
+      } else {
+        // For 6m or 12m, use the existing logic
+        for (let i = 0; i < monthsBack; i++) {
+          const date = new Date(now.getFullYear(), now.getMonth() - monthsBack + i + 1, 1);
+          monthsToDisplay.push(date);
+        }
+      }
+      
+      monthsToDisplay.forEach(date => {
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         const monthYearLabel = getMonthYearLabel(date);
         const revenue = monthlyRevenue[monthKey] || 0;
@@ -325,10 +413,17 @@ export default function Dashboard() {
           profitMargin: margin,
           totalMaintenanceCost: maintenanceCost,
         };
-      }
+      });
 
       setMonthlyData(monthlyDataArray);
       setMonthlyStats(monthlyStatsData);
+      
+      console.log('📈 Monthly Data Array:', monthlyDataArray.map(m => ({
+        month: m.month,
+        revenue: m.revenue,
+        dkuShare: m.dkuShare,
+        expenses: m.expenses
+      })));
 
       // Build available months list and monthly chart data
       const monthsList = monthlyDataArray.map(m => m.month);
@@ -509,6 +604,16 @@ export default function Dashboard() {
               </button>
             )}
             <button
+              onClick={() => setSelectedPeriod('all')}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                selectedPeriod === 'all'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-purple-900/30 text-white/70 hover:bg-purple-900/50'
+              }`}
+            >
+              All Time
+            </button>
+            <button
               onClick={() => setSelectedPeriod('6m')}
               className={`px-4 py-2 rounded-lg font-medium transition-all ${
                 selectedPeriod === '6m'
@@ -604,7 +709,7 @@ export default function Dashboard() {
                   </p>
                   <p className="text-sm text-white/70">Total Expenses</p>
                   <p className="text-xs text-orange-300 mt-2">
-                    {displayedStats.pendingExpenses} pending approval
+                    Approved only • {displayedStats.pendingExpenses} pending
                   </p>
                 </div>
               )}
