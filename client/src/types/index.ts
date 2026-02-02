@@ -199,6 +199,7 @@ export interface Tool {
   last_maintenance_date?: string;
   notes?: string;
   image_url?: string;
+  expense_id?: string | null;
   created_at: string;
   updated_at: string;
 }

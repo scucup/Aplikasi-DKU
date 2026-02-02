@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
@@ -34,6 +34,7 @@ export default function Revenue() {
   const [showModal, setShowModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<RevenueRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedResort, setSelectedResort] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [startDate, setStartDate] = useState('');
@@ -51,6 +52,15 @@ export default function Revenue() {
   });
 
   const canCreate = profile?.role === 'ADMIN' || profile?.role === 'MANAGER';
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchRecords();
@@ -103,6 +113,7 @@ export default function Revenue() {
           .from('revenue_records')
           .select('*, resort:resorts(name)')
           .order('date', { ascending: false })
+          .order('id', { ascending: true }) // Add secondary sort by ID to ensure consistent ordering
           .range(from, from + pageSize - 1);
 
         if (pageError) {
@@ -120,9 +131,10 @@ export default function Revenue() {
       }
 
       // Fetch profit sharing configs
+      // Fetch profit sharing configs - only required columns
       const { data: profitConfigs, error: profitError } = await supabase
         .from('profit_sharing_configs')
-        .select('*');
+        .select('id, resort_id, asset_category, dku_percentage, resort_percentage, effective_from');
 
       if (profitError) {
         console.error('Error fetching profit configs:', profitError);
@@ -148,11 +160,6 @@ export default function Revenue() {
           const dkuPercentage = config?.dku_percentage || 0;
           const dkuShare = (netAmount * dkuPercentage) / 100;
           
-          // Log warning if config is missing (only for missing configs)
-          if (!config) {
-            console.warn(`Missing profit sharing config for resort: ${record.resort_id}, category: ${record.asset_category}`);
-          }
-          
           return {
             ...record,
             netAmount: isNaN(netAmount) ? 0 : netAmount,
@@ -173,6 +180,7 @@ export default function Revenue() {
         }
       });
 
+      console.log(`✅ Processed ${recordsWithSharing.length} revenue records`);
       setRecords(recordsWithSharing);
     } catch (error) {
       console.error('Error fetching revenue records:', error);
@@ -387,10 +395,10 @@ export default function Revenue() {
     setAvailableCategories([]);
   };
 
-  // Filter function to be used for both table and summary
-  const filterRecords = (record: RevenueRecord) => {
+  // Filter function to be used for both table and summary - memoized
+  const filterRecords = useCallback((record: RevenueRecord) => {
     const billingNo = record.billing_no || '';
-    const search = searchTerm.toLowerCase();
+    const search = debouncedSearchTerm.toLowerCase();
     const matchesSearch = billingNo.toLowerCase().includes(search);
     
     // Resort filtering
@@ -412,25 +420,35 @@ export default function Revenue() {
     }
     
     return matchesSearch && matchesResort && matchesCategory && matchesDate;
-  };
+  }, [debouncedSearchTerm, selectedResort, selectedCategory, startDate, endDate]);
 
-  // Get filtered records
-  const filteredRecords = records.filter(filterRecords);
+  // Get filtered records - memoized
+  const filteredRecords = useMemo(() => {
+    return records.filter(filterRecords);
+  }, [records, filterRecords]);
 
   // Check if any filter is active
-  const isFilterActive = searchTerm || selectedResort !== 'all' || selectedCategory !== 'all' || startDate || endDate;
+  const isFilterActive = debouncedSearchTerm || selectedResort !== 'all' || selectedCategory !== 'all' || startDate || endDate;
 
-  // Calculate totals based on filtered records
-  const totalRevenue = filteredRecords.reduce((sum, record) => sum + Number(record.amount), 0);
-  const totalNetAmount = filteredRecords.reduce((sum, record) => {
-    const netAmount = Number(record.amount) - (Number(record.discount) || 0) - (Number(record.tax_service) || 0);
-    return sum + netAmount;
-  }, 0);
-  const totalDkuShare = filteredRecords.reduce((sum, record) => {
-    // Use the calculated dkuShare from the record, or calculate it if missing
-    const dkuShare = record.dkuShare || 0;
-    return sum + Number(dkuShare);
-  }, 0);
+  // Calculate totals based on filtered records - memoized
+  const statistics = useMemo(() => {
+    const totalRevenue = filteredRecords.reduce((sum, record) => sum + Number(record.amount), 0);
+    const totalNetAmount = filteredRecords.reduce((sum, record) => {
+      const netAmount = Number(record.amount) - (Number(record.discount) || 0) - (Number(record.tax_service) || 0);
+      return sum + netAmount;
+    }, 0);
+    const totalDkuShare = filteredRecords.reduce((sum, record) => {
+      const dkuShare = record.dku_share || 0;
+      return sum + Number(dkuShare);
+    }, 0);
+
+    return {
+      totalRevenue,
+      totalNetAmount,
+      totalDkuShare,
+      count: filteredRecords.length
+    };
+  }, [filteredRecords]);
 
   return (
     <Layout>
@@ -454,10 +472,10 @@ export default function Revenue() {
               Total Revenue {isFilterActive && <span className="text-yellow-300">(Filtered)</span>}
             </div>
             <div className="text-2xl font-bold text-white">
-              Rp {totalRevenue.toLocaleString('id-ID')}
+              Rp {statistics.totalRevenue.toLocaleString('id-ID')}
             </div>
             <div className="text-xs text-purple-300 mt-1">
-              {filteredRecords.length} records {isFilterActive && `of ${records.length}`}
+              {statistics.count} records {isFilterActive && `of ${records.length}`}
             </div>
           </div>
           <div className="bg-blue-900/30 backdrop-blur-sm rounded-xl p-4 border border-blue-500/30">
@@ -465,7 +483,7 @@ export default function Revenue() {
               Total Net Amount {isFilterActive && <span className="text-yellow-300">(Filtered)</span>}
             </div>
             <div className="text-2xl font-bold text-white">
-              Rp {totalNetAmount.toLocaleString('id-ID')}
+              Rp {statistics.totalNetAmount.toLocaleString('id-ID')}
             </div>
             <div className="text-xs text-blue-300 mt-1">
               After discount & tax
@@ -476,7 +494,7 @@ export default function Revenue() {
               Total DKU Share {isFilterActive && <span className="text-yellow-300">(Filtered)</span>}
             </div>
             <div className="text-2xl font-bold text-white">
-              Rp {totalDkuShare.toLocaleString('id-ID')}
+              Rp {statistics.totalDkuShare.toLocaleString('id-ID')}
             </div>
             <div className="text-xs text-green-300 mt-1">
               Profit sharing

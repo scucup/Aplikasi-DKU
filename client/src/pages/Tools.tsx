@@ -28,7 +28,7 @@ export default function Tools() {
   const fetchResorts = async () => {
     const { data, error } = await supabase
       .from('resorts')
-      .select('*')
+      .select('id, name')
       .order('name');
     
     if (error) {
@@ -42,7 +42,7 @@ export default function Tools() {
     setLoading(true);
     const { data, error } = await supabase
       .from('tools')
-      .select('*')
+      .select('id, name, category, brand, model, serial_number, resort_id, condition, purchase_date, purchase_price, supplier, warranty_until, last_maintenance_date, notes, image_url, expense_id, created_at, updated_at')
       .order('created_at', { ascending: false });
     
     if (error) {
@@ -123,7 +123,7 @@ export default function Tools() {
       console.error('Error deleting tool:', error);
       alert('Failed to delete tool: ' + error.message);
     }
-  };;
+  };
 
   if (loading) {
     return (

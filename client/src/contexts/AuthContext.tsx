@@ -122,12 +122,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign out
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    
-    setUser(null);
-    setProfile(null);
-    setSession(null);
+    try {
+      const { error } = await supabase.auth.signOut();
+      // Ignore AuthSessionMissingError - session already gone
+      if (error && error.message !== 'Auth session missing!') {
+        throw error;
+      }
+    } catch (error: any) {
+      // Ignore session missing errors during logout
+      if (error.message !== 'Auth session missing!') {
+        console.error('Error signing out:', error);
+        throw error;
+      }
+    } finally {
+      // Always clear local state regardless of API response
+      setUser(null);
+      setProfile(null);
+      setSession(null);
+    }
   };
 
   // Refresh profile

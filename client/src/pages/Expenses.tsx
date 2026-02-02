@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 
-type ExpenseCategory = 'OPERATIONAL' | 'FUEL' | 'MARKETING' | 'SPAREPART' | 'SALARY' | 'BUSINESS_TRAVEL' | 'SERVICE' | 'OTHER' | 'TOOLS';
+type ExpenseCategory = 'OPERATIONAL' | 'FUEL' | 'MARKETING' | 'SPAREPART' | 'SALARY' | 'BUSINESS_TRAVEL' | 'SERVICE' | 'OTHER' | 'TOOLS' | 'BANK_INSTALLMENT' | 'UTILITY' | 'TAX' | 'BPJS' | 'ASSET' | 'ZAKAT';
 type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 interface Expense {
@@ -42,8 +42,26 @@ interface SparepartItem {
   unit: string;
 }
 
+type ToolCategory = 'Hand Tools' | 'Power Tools' | 'Diagnostic Equipment' | 'Safety Equipment' | 'Measuring Tools' | 'Other';
+type ToolCondition = 'good' | 'fair' | 'poor' | 'damaged' | 'lost';
+
+interface ToolItem {
+  id: string;
+  tool_name: string;
+  category: ToolCategory;
+  brand: string;
+  model: string;
+  serial_number: string;
+  condition: ToolCondition;
+  warranty_until: string;
+  notes: string;
+}
+
 // Asset categories constant
 const ASSET_CATEGORIES: AssetCategory[] = ['ATV', 'UTV', 'SEA_SPORT', 'POOL_TOYS', 'LINE_SPORT'];
+
+// Tool categories constant
+const TOOL_CATEGORIES: ToolCategory[] = ['Hand Tools', 'Power Tools', 'Diagnostic Equipment', 'Safety Equipment', 'Measuring Tools', 'Other'];
 
 export default function Expenses() {
   const { user, profile } = useAuth();
@@ -60,12 +78,22 @@ export default function Expenses() {
   const [selectedResort, setSelectedResort] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   
   const canCreate = profile?.role === 'ADMIN' || profile?.role === 'MANAGER' || profile?.role === 'ENGINEER';
   const canApprove = profile?.role === 'MANAGER';
   const canDelete = profile?.role === 'MANAGER';
+
+  // Debounce search term to avoid filtering on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300); // Wait 300ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   
   const [formData, setFormData] = useState({
     category: 'OPERATIONAL' as ExpenseCategory,
@@ -81,8 +109,24 @@ export default function Expenses() {
     { id: crypto.randomUUID(), sparepart_name: '', quantity: 1, unit_price: 0, total_price: 0, asset_category: '', unit: 'pcs' }
   ]);
   
+  // Tool item for TOOLS category
+  const [toolItem, setToolItem] = useState<ToolItem>({
+    id: crypto.randomUUID(),
+    tool_name: '',
+    category: 'Hand Tools',
+    brand: '',
+    model: '',
+    serial_number: '',
+    condition: 'good',
+    warranty_until: '',
+    notes: ''
+  });
+  
   // Check if category is SPAREPART (needs sparepart items)
   const isSparepart = formData.category === 'SPAREPART';
+  
+  // Check if category is TOOLS (needs tool details)
+  const isTool = formData.category === 'TOOLS';
 
   // Calculate total from sparepart items
   const sparepartTotal = sparepartItems.reduce((sum, item) => sum + item.total_price, 0);
@@ -140,24 +184,38 @@ export default function Expenses() {
     ]);
   };
 
+  const resetToolItem = () => {
+    setToolItem({
+      id: crypto.randomUUID(),
+      tool_name: '',
+      category: 'Hand Tools',
+      brand: '',
+      model: '',
+      serial_number: '',
+      condition: 'good',
+      warranty_until: '',
+      notes: ''
+    });
+  };
+
   const fetchExpenses = async () => {
     try {
-      // Fetch expenses with user data
+      // Fetch expenses with only required columns
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
-        .select('*')
+        .select('id, category, description, amount, date, resort_id, status, submitted_by, approved_by, approval_date, approval_comments, supplier, created_at')
         .order('created_at', { ascending: false });
 
       if (expensesError) throw expensesError;
 
-      // Fetch all users to map names
+      // Fetch all users to map names - only id and name
       const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('id, name');
 
       if (usersError) throw usersError;
 
-      // Fetch all resorts to map names
+      // Fetch all resorts to map names - only id and name
       const { data: resortsData, error: resortsError } = await supabase
         .from('resorts')
         .select('id, name');
@@ -208,6 +266,22 @@ export default function Expenses() {
         return;
       }
     }
+
+    // Validate tool details for TOOLS category
+    if (formData.category === 'TOOLS') {
+      if (!formData.resort_id) {
+        alert('Please select a resort for Tools expenses');
+        return;
+      }
+      if (!toolItem.tool_name.trim()) {
+        alert('Please enter tool name');
+        return;
+      }
+      if (!formData.amount || parseFloat(formData.amount) <= 0) {
+        alert('Please enter purchase price');
+        return;
+      }
+    }
     
     try {
       const expenseId = crypto.randomUUID();
@@ -225,7 +299,7 @@ export default function Expenses() {
           resort_id: formData.resort_id || null,
           submitted_by: user?.id,
           status: 'PENDING',
-          supplier: formData.category === 'SPAREPART' ? formData.supplier : null,
+          supplier: (formData.category === 'SPAREPART' || formData.category === 'TOOLS') ? formData.supplier : null,
         },
       ]);
 
@@ -249,6 +323,27 @@ export default function Expenses() {
 
         if (sparepartError) {
           console.error('Error inserting sparepart items:', sparepartError);
+        }
+      }
+
+      // Insert tool details if category is TOOLS
+      if (formData.category === 'TOOLS') {
+        const { error: toolError } = await supabase
+          .from('expense_tools')
+          .insert([{
+            expense_id: expenseId,
+            tool_name: toolItem.tool_name,
+            category: toolItem.category,
+            brand: toolItem.brand || null,
+            model: toolItem.model || null,
+            serial_number: toolItem.serial_number || null,
+            condition: toolItem.condition,
+            warranty_until: toolItem.warranty_until || null,
+            notes: toolItem.notes || null,
+          }]);
+
+        if (toolError) {
+          console.error('Error inserting tool details:', toolError);
         }
       }
 
@@ -282,6 +377,7 @@ export default function Expenses() {
         supplier: '',
       });
       resetSparepartItems();
+      resetToolItem();
       fetchExpenses();
       alert('Expense created successfully! Notification sent to Manager for approval.');
     } catch (error: any) {
@@ -318,6 +414,18 @@ export default function Expenses() {
         return 'bg-orange-500';
       case 'MARKETING':
         return 'bg-pink-500';
+      case 'BANK_INSTALLMENT':
+        return 'bg-cyan-500';
+      case 'UTILITY':
+        return 'bg-yellow-500';
+      case 'TAX':
+        return 'bg-red-500';
+      case 'BPJS':
+        return 'bg-emerald-500';
+      case 'ASSET':
+        return 'bg-violet-500';
+      case 'ZAKAT':
+        return 'bg-lime-500';
       case 'OTHER':
         return 'bg-gray-500';
       default:
@@ -401,15 +509,33 @@ export default function Expenses() {
     }
 
     const isSparepart = expense.category === 'SPAREPART';
-    const confirmMsg = isSparepart
-      ? `Are you sure you want to delete this SPAREPART expense?\n\nDescription: ${expense.description}\nAmount: Rp ${expense.amount.toLocaleString('id-ID')}\n\n⚠️ This will also delete related inventory items and stock transactions.`
-      : `Are you sure you want to delete this expense?\n\nDescription: ${expense.description}\nAmount: Rp ${expense.amount.toLocaleString('id-ID')}`;
+    const isTool = expense.category === 'TOOLS';
+    
+    let confirmMsg = `Are you sure you want to delete this expense?\n\nDescription: ${expense.description}\nAmount: Rp ${expense.amount.toLocaleString('id-ID')}`;
+    
+    if (isSparepart) {
+      confirmMsg = `Are you sure you want to delete this SPAREPART expense?\n\nDescription: ${expense.description}\nAmount: Rp ${expense.amount.toLocaleString('id-ID')}\n\n⚠️ This will also delete related inventory items and stock transactions.`;
+    } else if (isTool && expense.status === 'APPROVED') {
+      confirmMsg = `Are you sure you want to delete this TOOLS expense?\n\nDescription: ${expense.description}\nAmount: Rp ${expense.amount.toLocaleString('id-ID')}\n\n⚠️ This will also delete the related tool from Tools page.`;
+    }
 
     if (!confirm(confirmMsg)) {
       return;
     }
 
     try {
+      // For TOOLS expenses, delete related tool
+      if (isTool && expense.status === 'APPROVED') {
+        const { error: toolDeleteError } = await supabase
+          .from('tools')
+          .delete()
+          .eq('expense_id', expense.id);
+
+        if (toolDeleteError) {
+          console.error('Error deleting related tool:', toolDeleteError);
+        }
+      }
+
       // For SPAREPART expenses, delete related inventory and transactions
       if (isSparepart && expense.status === 'APPROVED') {
         // Get expense sparepart items
@@ -467,17 +593,23 @@ export default function Expenses() {
       // Delete expense_spareparts first if exists
       await supabase.from('expense_spareparts').delete().eq('expense_id', expense.id);
 
+      // Delete expense_tools if exists
+      await supabase.from('expense_tools').delete().eq('expense_id', expense.id);
+
       // Delete the expense
       const { error } = await supabase.from('expenses').delete().eq('id', expense.id);
 
       if (error) throw error;
 
+      let successMsg = 'Expense deleted successfully!';
+      if (isSparepart && expense.status === 'APPROVED') {
+        successMsg = 'Expense deleted successfully!\n\n✅ Related inventory has been updated.';
+      } else if (isTool && expense.status === 'APPROVED') {
+        successMsg = 'Expense deleted successfully!\n\n✅ Related tool has been removed from Tools page.';
+      }
+      
       fetchExpenses();
-      alert(
-        isSparepart && expense.status === 'APPROVED'
-          ? 'Expense deleted successfully!\n\n✅ Related inventory has been updated.'
-          : 'Expense deleted successfully!'
-      );
+      alert(successMsg);
     } catch (error: any) {
       alert('Error deleting expense: ' + error.message);
     }
@@ -499,6 +631,61 @@ export default function Expenses() {
         .eq('id', selectedExpense.id);
 
       if (error) throw error;
+
+      // If expense is TOOLS category, create tool record
+      if (selectedExpense.category === 'TOOLS' && selectedExpense.resort_id) {
+        // Get tool details from expense_tools
+        const { data: toolDetails } = await supabase
+          .from('expense_tools')
+          .select('*')
+          .eq('expense_id', selectedExpense.id)
+          .maybeSingle();
+
+        if (toolDetails) {
+          const { error: toolError } = await supabase
+            .from('tools')
+            .insert([{
+              name: toolDetails.tool_name,
+              category: toolDetails.category,
+              brand: toolDetails.brand,
+              model: toolDetails.model,
+              serial_number: toolDetails.serial_number,
+              resort_id: selectedExpense.resort_id,
+              condition: toolDetails.condition,
+              purchase_date: selectedExpense.date,
+              purchase_price: selectedExpense.amount,
+              supplier: selectedExpense.supplier || null,
+              warranty_until: toolDetails.warranty_until,
+              notes: toolDetails.notes,
+              expense_id: selectedExpense.id,
+            }]);
+
+          if (toolError) {
+            console.error('Error creating tool record:', toolError);
+            alert('Expense approved but failed to create tool record: ' + toolError.message);
+          }
+        } else {
+          // Fallback for old expenses without tool details
+          const { error: toolError } = await supabase
+            .from('tools')
+            .insert([{
+              name: selectedExpense.description,
+              category: 'Other',
+              resort_id: selectedExpense.resort_id,
+              condition: 'good',
+              purchase_date: selectedExpense.date,
+              purchase_price: selectedExpense.amount,
+              supplier: selectedExpense.supplier || null,
+              expense_id: selectedExpense.id,
+              notes: `Purchased via expense approval. ${approvalComments || ''}`.trim(),
+            }]);
+
+          if (toolError) {
+            console.error('Error creating tool record:', toolError);
+            alert('Expense approved but failed to create tool record: ' + toolError.message);
+          }
+        }
+      }
 
       // If expense is SPAREPART category, update inventory
       if (selectedExpense.category === 'SPAREPART' && selectedExpense.resort_id) {
@@ -580,7 +767,25 @@ export default function Expenses() {
         }
       }
 
-      alert('Expense approved successfully!' + (selectedExpense.category === 'SPAREPART' ? ' Inventory has been updated.' : ''));
+      const successMsg = selectedExpense.category === 'SPAREPART' 
+        ? 'Expense approved successfully! Inventory has been updated.'
+        : selectedExpense.category === 'TOOLS'
+        ? 'Expense approved successfully! Tool has been added to Tools page.'
+        : 'Expense approved successfully!';
+      
+      alert(successMsg);
+      
+      // Mark related notification as read
+      await supabase
+        .from('notifications')
+        .update({ 
+          status: 'READ',
+          read_at: new Date().toISOString()
+        })
+        .eq('reference_id', selectedExpense.id)
+        .eq('reference_type', 'EXPENSE')
+        .eq('user_id', user?.id);
+      
       setShowApprovalModal(false);
       setSelectedExpense(null);
       setApprovalComments('');
@@ -617,6 +822,18 @@ export default function Expenses() {
       // Inventory only updates when expense is approved
 
       alert('Expense rejected successfully.');
+      
+      // Mark related notification as read
+      await supabase
+        .from('notifications')
+        .update({ 
+          status: 'READ',
+          read_at: new Date().toISOString()
+        })
+        .eq('reference_id', selectedExpense.id)
+        .eq('reference_type', 'EXPENSE')
+        .eq('user_id', user?.id);
+      
       setShowApprovalModal(false);
       setSelectedExpense(null);
       setApprovalComments('');
@@ -627,11 +844,11 @@ export default function Expenses() {
     }
   };
 
-  // Filter function to be used for both table and summary
-  const filterExpenses = (expense: Expense) => {
+  // Filter function to be used for both table and summary - memoized
+  const filterExpenses = useCallback((expense: Expense) => {
     const description = expense.description || '';
     const submitterName = expense.submitter?.name || '';
-    const search = searchTerm.toLowerCase();
+    const search = debouncedSearchTerm.toLowerCase();
     const matchesSearch = description.toLowerCase().includes(search) ||
                         submitterName.toLowerCase().includes(search);
     
@@ -657,13 +874,41 @@ export default function Expenses() {
     }
     
     return matchesSearch && matchesResort && matchesCategory && matchesStatus && matchesDate;
-  };
+  }, [debouncedSearchTerm, selectedResort, selectedCategory, filterStatus, startDate, endDate]);
 
-  // Get filtered expenses
-  const filteredExpenses = expenses.filter(filterExpenses);
+  // Get filtered expenses - memoized to avoid recalculation on every render
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(filterExpenses);
+  }, [expenses, filterExpenses]);
+
+  // Calculate statistics - memoized
+  const statistics = useMemo(() => {
+    const pending = filteredExpenses.filter(e => e.status === 'PENDING');
+    const approved = filteredExpenses.filter(e => e.status === 'APPROVED');
+    const rejected = filteredExpenses.filter(e => e.status === 'REJECTED');
+
+    return {
+      pending: {
+        amount: pending.reduce((sum, e) => sum + e.amount, 0),
+        count: pending.length
+      },
+      approved: {
+        amount: approved.reduce((sum, e) => sum + e.amount, 0),
+        count: approved.length
+      },
+      rejected: {
+        amount: rejected.reduce((sum, e) => sum + e.amount, 0),
+        count: rejected.length
+      },
+      total: {
+        amount: filteredExpenses.reduce((sum, e) => sum + e.amount, 0),
+        count: filteredExpenses.length
+      }
+    };
+  }, [filteredExpenses]);
 
   // Check if any filter is active
-  const isFilterActive = searchTerm || selectedResort !== 'all' || selectedCategory !== 'all' || filterStatus !== 'all' || startDate || endDate;
+  const isFilterActive = debouncedSearchTerm || selectedResort !== 'all' || selectedCategory !== 'all' || filterStatus !== 'all' || startDate || endDate;
 
   return (
     <Layout>
@@ -688,14 +933,10 @@ export default function Expenses() {
                 Pending {isFilterActive && <span className="text-yellow-100">(Filtered)</span>}
               </div>
               <div className="text-2xl font-bold text-white">
-                {filteredExpenses.filter((e) => e.status === 'PENDING').length}
+                Rp {statistics.pending.amount.toLocaleString('id-ID')}
               </div>
               <div className="text-xs text-yellow-300 mt-1">
-                Rp{' '}
-                {filteredExpenses
-                  .filter((e) => e.status === 'PENDING')
-                  .reduce((sum, e) => sum + e.amount, 0)
-                  .toLocaleString('id-ID')}
+                {statistics.pending.count} records {isFilterActive && `of ${expenses.filter(e => e.status === 'PENDING').length}`}
               </div>
             </div>
             <div className="bg-green-900/30 backdrop-blur-sm rounded-xl p-4 border border-green-500/30">
@@ -703,14 +944,10 @@ export default function Expenses() {
                 Approved {isFilterActive && <span className="text-green-100">(Filtered)</span>}
               </div>
               <div className="text-2xl font-bold text-white">
-                {filteredExpenses.filter((e) => e.status === 'APPROVED').length}
+                Rp {statistics.approved.amount.toLocaleString('id-ID')}
               </div>
               <div className="text-xs text-green-300 mt-1">
-                Rp{' '}
-                {filteredExpenses
-                  .filter((e) => e.status === 'APPROVED')
-                  .reduce((sum, e) => sum + e.amount, 0)
-                  .toLocaleString('id-ID')}
+                {statistics.approved.count} records {isFilterActive && `of ${expenses.filter(e => e.status === 'APPROVED').length}`}
               </div>
             </div>
             <div className="bg-red-900/30 backdrop-blur-sm rounded-xl p-4 border border-red-500/30">
@@ -718,14 +955,10 @@ export default function Expenses() {
                 Rejected {isFilterActive && <span className="text-red-100">(Filtered)</span>}
               </div>
               <div className="text-2xl font-bold text-white">
-                {filteredExpenses.filter((e) => e.status === 'REJECTED').length}
+                Rp {statistics.rejected.amount.toLocaleString('id-ID')}
               </div>
               <div className="text-xs text-red-300 mt-1">
-                Rp{' '}
-                {filteredExpenses
-                  .filter((e) => e.status === 'REJECTED')
-                  .reduce((sum, e) => sum + e.amount, 0)
-                  .toLocaleString('id-ID')}
+                {statistics.rejected.count} records {isFilterActive && `of ${expenses.filter(e => e.status === 'REJECTED').length}`}
               </div>
             </div>
             <div className="bg-blue-900/30 backdrop-blur-sm rounded-xl p-4 border border-blue-500/30">
@@ -733,13 +966,10 @@ export default function Expenses() {
                 Total {isFilterActive && <span className="text-blue-100">(Filtered)</span>}
               </div>
               <div className="text-2xl font-bold text-white">
-                {filteredExpenses.length} {isFilterActive && <span className="text-sm font-normal">of {expenses.length}</span>}
+                Rp {statistics.total.amount.toLocaleString('id-ID')}
               </div>
               <div className="text-xs text-blue-300 mt-1">
-                Rp{' '}
-                {filteredExpenses
-                  .reduce((sum, e) => sum + e.amount, 0)
-                  .toLocaleString('id-ID')}
+                {statistics.total.count} records {isFilterActive && `of ${expenses.length}`}
               </div>
             </div>
           </div>
@@ -786,6 +1016,12 @@ export default function Expenses() {
               <option value="BUSINESS_TRAVEL">Business Travel</option>
               <option value="SERVICE">Service</option>
               <option value="TOOLS">Tools</option>
+              <option value="BANK_INSTALLMENT">Bank Installment</option>
+              <option value="UTILITY">Utility</option>
+              <option value="TAX">Tax</option>
+              <option value="BPJS">BPJS</option>
+              <option value="ASSET">Asset</option>
+              <option value="ZAKAT">Zakat</option>
               <option value="OTHER">Other</option>
             </select>
             
@@ -958,22 +1194,32 @@ export default function Expenses() {
                     <option value="SPAREPART" className="bg-slate-800 text-white">Spare Part</option>
                     <option value="TOOLS" className="bg-slate-800 text-white">Tools</option>
                     <option value="SERVICE" className="bg-slate-800 text-white">Service</option>
-                    <option value="SALARY" className="bg-slate-800 text-white">Salary</option>
                     <option value="FUEL" className="bg-slate-800 text-white">Fuel</option>
-                    <option value="BUSINESS_TRAVEL" className="bg-slate-800 text-white">Business Travel</option>
-                    <option value="MARKETING" className="bg-slate-800 text-white">Marketing</option>
+                    {(profile?.role === 'ADMIN' || profile?.role === 'MANAGER') && (
+                      <>
+                        <option value="SALARY" className="bg-slate-800 text-white">Salary</option>
+                        <option value="BUSINESS_TRAVEL" className="bg-slate-800 text-white">Business Travel</option>
+                        <option value="MARKETING" className="bg-slate-800 text-white">Marketing</option>
+                        <option value="BANK_INSTALLMENT" className="bg-slate-800 text-white">Bank Installment</option>
+                        <option value="UTILITY" className="bg-slate-800 text-white">Utility</option>
+                        <option value="TAX" className="bg-slate-800 text-white">Tax</option>
+                        <option value="BPJS" className="bg-slate-800 text-white">BPJS</option>
+                        <option value="ASSET" className="bg-slate-800 text-white">Asset</option>
+                        <option value="ZAKAT" className="bg-slate-800 text-white">Zakat</option>
+                      </>
+                    )}
                     <option value="OTHER" className="bg-slate-800 text-white">Other</option>
                   </select>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
-                    Resort {isSparepart && '*'}
+                    Resort {(isSparepart || isTool) && '*'}
                   </label>
                   <select
                     value={formData.resort_id}
                     onChange={(e) => setFormData({ ...formData, resort_id: e.target.value })}
-                    required={isSparepart}
+                    required={isSparepart || isTool}
                     className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
                   >
                     <option value="" className="bg-slate-800 text-white">-- General / Not Resort Specific --</option>
@@ -984,7 +1230,11 @@ export default function Expenses() {
                     ))}
                   </select>
                   <p className="text-xs text-white/70 mt-1">
-                    {isSparepart ? 'Required: Select resort for sparepart inventory' : 'Select resort if this expense is specific to a location'}
+                    {isSparepart 
+                      ? 'Required: Select resort for sparepart inventory' 
+                      : isTool
+                      ? 'Required: Select resort for tool location'
+                      : 'Select resort if this expense is specific to a location'}
                   </p>
                 </div>
 
@@ -1117,6 +1367,125 @@ export default function Expenses() {
                   </div>
                 )}
 
+                {/* Tool Details - Only for TOOLS category */}
+                {isTool && (
+                  <div className="border border-purple-500/30 rounded-lg p-4 bg-purple-900/20 space-y-3">
+                    <label className="block text-sm font-medium text-white mb-3">
+                      Tool Details *
+                    </label>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-white/70 mb-1">Tool Name *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g., Impact Wrench"
+                          value={toolItem.tool_name}
+                          onChange={(e) => setToolItem({ ...toolItem, tool_name: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-white/70 mb-1">Category *</label>
+                        <select
+                          required
+                          value={toolItem.category}
+                          onChange={(e) => setToolItem({ ...toolItem, category: e.target.value as ToolCategory })}
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                        >
+                          {TOOL_CATEGORIES.map((cat) => (
+                            <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-white/70 mb-1">Brand</label>
+                        <input
+                          type="text"
+                          placeholder="e.g., Makita"
+                          value={toolItem.brand}
+                          onChange={(e) => setToolItem({ ...toolItem, brand: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-white/70 mb-1">Model</label>
+                        <input
+                          type="text"
+                          placeholder="e.g., DTW285Z"
+                          value={toolItem.model}
+                          onChange={(e) => setToolItem({ ...toolItem, model: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-white/70 mb-1">Serial Number</label>
+                        <input
+                          type="text"
+                          placeholder="e.g., SN123456"
+                          value={toolItem.serial_number}
+                          onChange={(e) => setToolItem({ ...toolItem, serial_number: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-white/70 mb-1">Condition *</label>
+                        <select
+                          required
+                          value={toolItem.condition}
+                          onChange={(e) => setToolItem({ ...toolItem, condition: e.target.value as ToolCondition })}
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                        >
+                          <option value="good" className="bg-slate-800">Good</option>
+                          <option value="fair" className="bg-slate-800">Fair</option>
+                          <option value="poor" className="bg-slate-800">Poor</option>
+                          <option value="damaged" className="bg-slate-800">Damaged</option>
+                          <option value="lost" className="bg-slate-800">Lost</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-white/70 mb-1">Warranty Until</label>
+                      <input
+                        type="date"
+                        value={toolItem.warranty_until}
+                        onChange={(e) => setToolItem({ ...toolItem, warranty_until: e.target.value })}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-white/70 mb-1">Supplier</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., PT Tool Indonesia"
+                        value={formData.supplier}
+                        onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-white/70 mb-1">Notes</label>
+                      <textarea
+                        rows={2}
+                        placeholder="Additional notes about this tool..."
+                        value={toolItem.notes}
+                        onChange={(e) => setToolItem({ ...toolItem, notes: e.target.value })}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
                     Description *
@@ -1134,14 +1503,16 @@ export default function Expenses() {
                 {/* Amount field - hidden for SPAREPART since it's calculated */}
                 {!isSparepart && (
                   <div>
-                    <label className="block text-sm font-medium text-white mb-2">Amount *</label>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      {isTool ? 'Purchase Price (Rp) *' : 'Amount *'}
+                    </label>
                     <input
                       type="number"
                       required
                       value={formData.amount}
                       onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                       className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
-                      placeholder="Enter amount"
+                      placeholder={isTool ? "Enter purchase price" : "Enter amount"}
                     />
                   </div>
                 )}
@@ -1289,6 +1660,12 @@ export default function Expenses() {
                     <option value="FUEL" className="bg-slate-800 text-white">Fuel</option>
                     <option value="BUSINESS_TRAVEL" className="bg-slate-800 text-white">Business Travel</option>
                     <option value="MARKETING" className="bg-slate-800 text-white">Marketing</option>
+                    <option value="BANK_INSTALLMENT" className="bg-slate-800 text-white">Bank Installment</option>
+                    <option value="UTILITY" className="bg-slate-800 text-white">Utility</option>
+                    <option value="TAX" className="bg-slate-800 text-white">Tax</option>
+                    <option value="BPJS" className="bg-slate-800 text-white">BPJS</option>
+                    <option value="ASSET" className="bg-slate-800 text-white">Asset</option>
+                    <option value="ZAKAT" className="bg-slate-800 text-white">Zakat</option>
                     <option value="OTHER" className="bg-slate-800 text-white">Other</option>
                   </select>
                 </div>
