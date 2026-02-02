@@ -267,22 +267,8 @@ export default function Revenue() {
         const discountValue = parseFloat(formData.discount_value);
         if (formData.discount_type === 'PERCENTAGE') {
           discountPercentage = discountValue;
-          
-          // Check if this is Montigo Resort (special calculation)
-          const selectedResortData = resorts.find(r => r.id === formData.resort_id);
-          const isMontigo = selectedResortData?.name === 'MONTIGO RESORT';
-          const isHarris = selectedResortData?.name?.includes('HARRIS');
-          
-          if (isMontigo) {
-            // For Montigo: Formula = amount / (1 + 21 / 100) * (discountValue / 100)
-            discountAmount = amount / (1 + 21 / 100) * (discountValue / 100);
-          } else if (isHarris) {
-            // For Harris: simple percentage calculation
-            discountAmount = amount * (discountValue / 100);
-          } else {
-            // For other resorts: discount is applied to base amount (before tax)
-            discountAmount = amount / (1 + 21 / 100) * (discountValue / 100);
-          }
+          // Simple percentage calculation for all resorts
+          discountAmount = amount * (discountValue / 100);
         } else {
           // FIXED_AMOUNT
           discountAmount = discountValue;
@@ -300,22 +286,8 @@ export default function Revenue() {
         const taxServiceValue = parseFloat(formData.tax_service_value);
         if (formData.tax_service_type === 'PERCENTAGE') {
           taxServicePercentage = taxServiceValue;
-          
-          // Check if this is Montigo Resort (special calculation)
-          const selectedResortData = resorts.find(r => r.id === formData.resort_id);
-          const isMontigo = selectedResortData?.name === 'MONTIGO RESORT';
-          const isHarris = selectedResortData?.name?.includes('HARRIS');
-          
-          if (isMontigo) {
-            // For Montigo: Formula baru = amount / (1 + taxServiceValue / 100) * (1 - discountPercentage / 100) * (taxServiceValue / 100)
-            taxServiceAmount = amount / (1 + taxServiceValue / 100) * (1 - discountPercentage / 100) * (taxServiceValue / 100);
-          } else if (isHarris) {
-            // For Harris: formula lama menggunakan amountAfterDiscount
-            taxServiceAmount = amountAfterDiscount / (1 + taxServiceValue / 100) * (taxServiceValue / 100);
-          } else {
-            // For other resorts: Formula baru = amount / (1 + taxServiceValue / 100) * (1 - discountPercentage / 100) * (taxServiceValue / 100)
-            taxServiceAmount = amount / (1 + taxServiceValue / 100) * (1 - discountPercentage / 100) * (taxServiceValue / 100);
-          }
+          // Calculate from amount after discount for all resorts
+          taxServiceAmount = amountAfterDiscount / (1 + taxServiceValue / 100) * (taxServiceValue / 100);
         } else {
           // FIXED_AMOUNT
           taxServiceAmount = taxServiceValue;
@@ -924,23 +896,10 @@ export default function Revenue() {
                             const amount = parseFloat(formData.amount);
                             const discountValue = parseFloat(formData.discount_value);
                             
-                            // Check if this is Montigo Resort (special calculation)
-                            const selectedResortData = resorts.find(r => r.id === formData.resort_id);
-                            const isMontigo = selectedResortData?.name === 'MONTIGO RESORT';
-                            const isHarris = selectedResortData?.name?.includes('HARRIS');
-                            
                             let discount;
                             if (formData.discount_type === 'PERCENTAGE') {
-                              if (isMontigo) {
-                                // For Montigo: Formula = amount / (1 + 21 / 100) * (discountValue / 100)
-                                discount = amount / (1 + 21 / 100) * (discountValue / 100);
-                              } else if (isHarris) {
-                                // For Harris: simple percentage calculation
-                                discount = amount * (discountValue / 100);
-                              } else {
-                                // For other resorts: discount is applied to base amount (before tax)
-                                discount = amount / (1 + 21 / 100) * (discountValue / 100);
-                              }
+                              // Simple percentage calculation for all resorts
+                              discount = amount * (discountValue / 100);
                             } else {
                               discount = discountValue;
                             }
@@ -959,23 +918,10 @@ export default function Revenue() {
                             const amount = parseFloat(formData.amount);
                             const discountValue = parseFloat(formData.discount_value || '0');
                             
-                            // Check if this is Montigo Resort (special calculation)
-                            const selectedResortData = resorts.find(r => r.id === formData.resort_id);
-                            const isMontigo = selectedResortData?.name === 'MONTIGO RESORT';
-                            const isHarris = selectedResortData?.name?.includes('HARRIS');
-                            
                             let discountAmount;
                             if (formData.discount_type === 'PERCENTAGE') {
-                              if (isMontigo) {
-                                // For Montigo: Formula = amount / (1 + 21 / 100) * (discountValue / 100)
-                                discountAmount = amount / (1 + 21 / 100) * (discountValue / 100);
-                              } else if (isHarris) {
-                                // For Harris: simple percentage calculation
-                                discountAmount = amount * (discountValue / 100);
-                              } else {
-                                // For other resorts: discount is applied to base amount (before tax)
-                                discountAmount = amount / (1 + 21 / 100) * (discountValue / 100);
-                              }
+                              // Simple percentage calculation for all resorts
+                              discountAmount = amount * (discountValue / 100);
                             } else {
                               discountAmount = discountValue;
                             }
@@ -984,16 +930,8 @@ export default function Revenue() {
                             
                             let taxService;
                             if (formData.tax_service_type === 'PERCENTAGE') {
-                              if (isMontigo) {
-                                // For Montigo: Formula baru = amount / (1 + taxServiceValue / 100) * (1 - discountValue / 100) * (taxServiceValue / 100)
-                                taxService = amount / (1 + taxServiceValue / 100) * (1 - discountValue / 100) * (taxServiceValue / 100);
-                              } else if (isHarris) {
-                                // For Harris: formula lama menggunakan amountAfterDiscount
-                                taxService = amountAfterDiscount / (1 + taxServiceValue / 100) * (taxServiceValue / 100);
-                              } else {
-                                // For other resorts: Formula baru = amount / (1 + taxServiceValue / 100) * (1 - discountValue / 100) * (taxServiceValue / 100)
-                                taxService = amount / (1 + taxServiceValue / 100) * (1 - discountValue / 100) * (taxServiceValue / 100);
-                              }
+                              // Calculate from amount after discount for all resorts
+                              taxService = amountAfterDiscount / (1 + taxServiceValue / 100) * (taxServiceValue / 100);
                             } else {
                               taxService = taxServiceValue;
                             }
@@ -1009,23 +947,10 @@ export default function Revenue() {
                           const amount = parseFloat(formData.amount);
                           const discountValue = parseFloat(formData.discount_value || '0');
                           
-                          // Check if this is Montigo Resort (special calculation)
-                          const selectedResortData = resorts.find(r => r.id === formData.resort_id);
-                          const isMontigo = selectedResortData?.name === 'MONTIGO RESORT';
-                          const isHarris = selectedResortData?.name?.includes('HARRIS');
-                          
                           let discountAmount;
                           if (formData.discount_type === 'PERCENTAGE') {
-                            if (isMontigo) {
-                              // For Montigo: Formula = amount / (1 + 21 / 100) * (discountValue / 100)
-                              discountAmount = amount / (1 + 21 / 100) * (discountValue / 100);
-                            } else if (isHarris) {
-                              // For Harris: simple percentage calculation
-                              discountAmount = amount * (discountValue / 100);
-                            } else {
-                              // For other resorts: discount is applied to base amount (before tax)
-                              discountAmount = amount / (1 + 21 / 100) * (discountValue / 100);
-                            }
+                            // Simple percentage calculation for all resorts
+                            discountAmount = amount * (discountValue / 100);
                           } else {
                             discountAmount = discountValue;
                           }
@@ -1034,16 +959,8 @@ export default function Revenue() {
                           
                           let taxService;
                           if (formData.tax_service_type === 'PERCENTAGE') {
-                            if (isMontigo) {
-                              // For Montigo: Formula baru = amount / (1 + taxServiceValue / 100) * (1 - discountValue / 100) * (taxServiceValue / 100)
-                              taxService = amount / (1 + taxServiceValue / 100) * (1 - discountValue / 100) * (taxServiceValue / 100);
-                            } else if (isHarris) {
-                              // For Harris: formula lama menggunakan amountAfterDiscount
-                              taxService = amountAfterDiscount / (1 + taxServiceValue / 100) * (taxServiceValue / 100);
-                            } else {
-                              // For other resorts: Formula baru = amount / (1 + taxServiceValue / 100) * (1 - discountValue / 100) * (taxServiceValue / 100)
-                              taxService = amount / (1 + taxServiceValue / 100) * (1 - discountValue / 100) * (taxServiceValue / 100);
-                            }
+                            // Calculate from amount after discount for all resorts
+                            taxService = amountAfterDiscount / (1 + taxServiceValue / 100) * (taxServiceValue / 100);
                           } else {
                             taxService = taxServiceValue;
                           }
