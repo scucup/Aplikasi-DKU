@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 
-type ExpenseCategory = 'OPERATIONAL' | 'FUEL' | 'MARKETING' | 'SPAREPART' | 'SALARY' | 'BUSINESS_TRAVEL' | 'SERVICE' | 'OTHER' | 'TOOLS' | 'BANK_INSTALLMENT' | 'UTILITY' | 'TAX' | 'BPJS' | 'ASSET' | 'ZAKAT';
+type ExpenseCategory = 'OPERATIONAL' | 'FUEL' | 'MARKETING' | 'SPAREPART' | 'SALARY' | 'BUSINESS_TRAVEL' | 'SERVICE' | 'OTHER' | 'TOOLS' | 'BANK_INSTALLMENT' | 'UTILITY' | 'TAX' | 'BPJS' | 'ASSET' | 'ZAKAT' | 'INSURANCE';
 type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 interface Expense {
@@ -426,6 +426,8 @@ export default function Expenses() {
         return 'bg-violet-500';
       case 'ZAKAT':
         return 'bg-lime-500';
+      case 'INSURANCE':
+        return 'bg-sky-500';
       case 'OTHER':
         return 'bg-gray-500';
       default:
@@ -1022,6 +1024,7 @@ export default function Expenses() {
               <option value="BPJS">BPJS</option>
               <option value="ASSET">Asset</option>
               <option value="ZAKAT">Zakat</option>
+              <option value="INSURANCE">Insurance</option>
               <option value="OTHER">Other</option>
             </select>
             
@@ -1206,6 +1209,7 @@ export default function Expenses() {
                         <option value="BPJS" className="bg-slate-800 text-white">BPJS</option>
                         <option value="ASSET" className="bg-slate-800 text-white">Asset</option>
                         <option value="ZAKAT" className="bg-slate-800 text-white">Zakat</option>
+                        <option value="INSURANCE" className="bg-slate-800 text-white">Insurance</option>
                       </>
                     )}
                     <option value="OTHER" className="bg-slate-800 text-white">Other</option>
