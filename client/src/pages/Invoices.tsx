@@ -501,26 +501,43 @@ export default function Invoices() {
         .select('*')
         .eq('invoice_id', invoice.id);
 
-      // Fetch bank account
-      const { data: bankData } = await supabase
-        .from('bank_accounts')
-        .select('*')
-        .eq('id', invoice.bank_account_id || '')
-        .single();
+      // Fetch company settings (bank account, NPWP, etc) - single source of truth
+      const { data: companySettings } = await supabase
+        .from('company_settings')
+        .select('setting_key, setting_value')
+        .in('setting_key', [
+          'bank_name',
+          'bank_account_name',
+          'bank_account_number',
+          'bank_swift_code',
+          'npwp',
+          'company_address',
+          'signatory_name',
+          'signatory_title',
+          'company_logo_url'
+        ]);
 
-      if (!bankData) {
-        alert('Bank account not found for this invoice');
+      if (!companySettings || companySettings.length === 0) {
+        alert('Company settings not found. Please configure company settings first.');
         return;
       }
 
-      // Fetch company logo URL
-      const { data: logoData } = await supabase
-        .from('company_settings')
-        .select('setting_value')
-        .eq('setting_key', 'company_logo_url')
-        .single();
+      // Convert array to object for easier access
+      const settings: { [key: string]: string } = {};
+      companySettings.forEach(setting => {
+        settings[setting.setting_key] = setting.setting_value;
+      });
 
-      const logoUrl = logoData?.setting_value || '';
+      // Prepare bank account data from company settings
+      const bankData = {
+        bank_name: settings.bank_name || 'MANDIRI',
+        account_number: settings.bank_account_number || '',
+        account_holder_name: settings.bank_account_name || 'CV. DANISH KARYA UTAMA',
+        swift_code: settings.bank_swift_code || '',
+        npwp: settings.npwp || '',
+      };
+
+      const logoUrl = settings.company_logo_url || '';
 
       const doc = await generateInvoicePDF(invoice, items || [], bankData, logoUrl);
       doc.save(`${invoice.invoice_number}.pdf`);
