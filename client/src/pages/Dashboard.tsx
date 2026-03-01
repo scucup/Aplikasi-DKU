@@ -9,6 +9,7 @@ import AreaChart from '../components/charts/AreaChart';
 import BarChart from '../components/charts/BarChart';
 import LineChart from '../components/charts/LineChart';
 import { fetchProfitConfigs, processRevenueWithProfitSharing } from '../lib/profitSharing';
+import { getMonthYearLabel } from '../lib/utils';
 
 interface DashboardStats {
   totalResorts: number;
@@ -129,11 +130,6 @@ export default function Dashboard() {
     fetchDashboardData();
   }, [selectedPeriod, startingMonth]);
 
-  const getMonthYearLabel = (date: Date) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${months[date.getMonth()]} ${date.getFullYear()}`;
-  };
-
   const fetchDashboardData = async () => {
     try {
       // First, fetch ALL available months from database to populate the dropdown
@@ -243,11 +239,11 @@ export default function Dashboard() {
         // No period selected, show only the specific month
         const [year, month] = startingMonth.split('-').map(Number);
         
-        // First day of the month at 00:00:00 UTC
-        startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+        // First day of the month (local time, not UTC to match database dates)
+        startDate = new Date(year, month - 1, 1);
         
-        // Last day of the same month at 23:59:59 UTC
-        endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+        // Last day of the same month (get first day of NEXT month, then subtract 1 day)
+        endDate = new Date(year, month, 0); // This gives last day of current month
         
         monthsBack = 1;
       } else if (startingMonth && selectedPeriod) {
@@ -415,9 +411,10 @@ export default function Dashboard() {
         .select('amount, status, date, category');
       
       // Filter by date range - SAME AS EXPENSES PAGE
+      // Parse date as YYYY-MM-DD string comparison to avoid timezone issues
       const filteredExpenses = allExpensesData?.filter(expense => {
-        const expenseDate = new Date(expense.date);
-        return expenseDate >= startDate && expenseDate <= endDate;
+        // Compare dates as strings in YYYY-MM-DD format
+        return expense.date >= startDateStr && expense.date <= endDateStr;
       }) || [];
       
       // Calculate totals - SAME AS EXPENSES PAGE (APPROVED only for net profit)
@@ -563,6 +560,14 @@ export default function Dashboard() {
       // Build available months list for card period selector
       const monthsList = monthlyDataArray.map(m => m.month);
       setAvailableMonths(monthsList);
+
+      // Auto-set selectedCardPeriod when viewing single month
+      if (monthsList.length === 1 && selectedPeriod === null) {
+        setSelectedCardPeriod(monthsList[0]);
+      } else if (selectedPeriod === 'all' || selectedPeriod === '6m' || selectedPeriod === '12m') {
+        // Reset to 'all' when viewing multiple months
+        setSelectedCardPeriod('all');
+      }
 
       // Build monthly expenses distribution data
       const monthlyExpDistData: MonthlyChartData = {};

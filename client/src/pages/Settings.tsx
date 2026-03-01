@@ -51,7 +51,7 @@ export default function Settings() {
     try {
       const { data, error } = await supabase
         .from('company_settings')
-        .select('*')
+        .select('setting_key, setting_value')
         .in('setting_key', [
           'bank_name',
           'bank_account_name',

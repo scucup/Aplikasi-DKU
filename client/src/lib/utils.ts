@@ -3,6 +3,8 @@
  * Centralized common functions to avoid duplication
  */
 
+import { supabase } from './supabase';
+
 /**
  * Format currency to Indonesian Rupiah
  */
@@ -54,6 +56,45 @@ export const parseDate = (dateString: string): Date => {
 export const getMonthYearLabel = (date: Date): string => {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return `${months[date.getMonth()]} ${date.getFullYear()}`;
+};
+
+/**
+ * Generate unique invoice number with format: INV-YYYYMM-XXXX
+ * Centralized to avoid duplication between Invoices and CustomInvoiceModal
+ */
+export const generateInvoiceNumber = async (): Promise<string> => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const prefix = `INV-${year}${month}-`;
+  
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('invoice_number')
+    .like('invoice_number', `${prefix}%`)
+    .order('invoice_number', { ascending: false })
+    .limit(1);
+  
+  let nextNumber = 1;
+  if (!error && data && data.length > 0) {
+    const lastNumber = data[0].invoice_number;
+    const lastSeq = parseInt(lastNumber.split('-')[2], 10);
+    if (!isNaN(lastSeq)) {
+      nextNumber = lastSeq + 1;
+    }
+  }
+  
+  return `${prefix}${String(nextNumber).padStart(4, '0')}`;
+};
+
+/**
+ * Format date to YYYY-MM-DD string
+ */
+export const formatDateToString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 /**

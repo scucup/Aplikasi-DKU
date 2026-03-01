@@ -3,8 +3,11 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 import { generateInvoicePDF } from '../components/InvoicePDF';
+import CustomInvoiceModal from '../components/CustomInvoiceModal';
+import { generateInvoiceNumber, generateUUID } from '../lib/utils';
 
 type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID';
+type InvoiceType = 'RENTAL' | 'CUSTOM';
 type AssetCategory = 'ATV' | 'UTV' | 'SEA_SPORT' | 'POOL_TOYS' | 'LINE_SPORT';
 
 interface Resort {
@@ -30,9 +33,15 @@ interface BankAccount {
 interface Invoice {
   id: string;
   invoice_number: string;
+  invoice_type: InvoiceType;
   resort_id: string;
-  start_date: string;
-  end_date: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  invoice_date?: string | null;
+  customer_name?: string | null;
+  customer_address?: string | null;
+  customer_phone?: string | null;
+  customer_email?: string | null;
   total_revenue: number;
   dku_share: number;
   resort_share: number;
@@ -40,6 +49,7 @@ interface Invoice {
   generated_by: string;
   created_at: string;
   bank_account_id?: string;
+  notes?: string | null;
   resort?: Resort;
   generator?: { name: string };
 }
@@ -62,6 +72,7 @@ export default function Invoices() {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showCustomModal, setShowCustomModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showBankModal, setShowBankModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -104,7 +115,7 @@ export default function Invoices() {
     try {
       const { data, error } = await supabase
         .from('resorts')
-        .select('*')
+        .select('id, name, address, company_address, contact_name, contact_email, contact_phone')
         .order('name');
 
       if (error) throw error;
@@ -118,7 +129,7 @@ export default function Invoices() {
     try {
       const { data, error } = await supabase
         .from('bank_accounts')
-        .select('*')
+        .select('id, bank_name, account_number, account_holder_name, swift_code, npwp, is_default')
         .order('is_default', { ascending: false });
 
       if (error) throw error;
@@ -164,13 +175,13 @@ export default function Invoices() {
     try {
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
-        .select('*')
+        .select('id, invoice_number, invoice_type, resort_id, start_date, end_date, invoice_date, customer_name, customer_address, customer_phone, customer_email, total_revenue, dku_share, resort_share, status, generated_by, created_at, bank_account_id, notes')
         .order('created_at', { ascending: false });
 
       if (invoicesError) throw invoicesError;
 
       // Fetch resorts and users
-      const { data: resortsData } = await supabase.from('resorts').select('*');
+      const { data: resortsData } = await supabase.from('resorts').select('id, name, legal_company_name, company_address, contact_name, contact_email, contact_phone');
       const { data: usersData } = await supabase.from('users').select('id, name');
 
       const resortMap = new Map(resortsData?.map(r => [r.id, r]) || []);
@@ -190,38 +201,11 @@ export default function Invoices() {
     }
   };
 
-  const generateInvoiceNumber = async (): Promise<string> => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const prefix = `INV-${year}${month}-`;
-    
-    // Get the last invoice number for this month
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('invoice_number')
-      .like('invoice_number', `${prefix}%`)
-      .order('invoice_number', { ascending: false })
-      .limit(1);
-    
-    let nextNumber = 1;
-    if (!error && data && data.length > 0) {
-      // Extract the sequential number from the last invoice
-      const lastNumber = data[0].invoice_number;
-      const lastSeq = parseInt(lastNumber.split('-')[2], 10);
-      if (!isNaN(lastSeq)) {
-        nextNumber = lastSeq + 1;
-      }
-    }
-    
-    return `${prefix}${String(nextNumber).padStart(4, '0')}`;
-  };
-
   const calculateInvoiceData = async (resortId: string, startDate: string, endDate: string, categories?: AssetCategory[]) => {
     // Fetch revenue records for the period
     let query = supabase
       .from('revenue_records')
-      .select('*')
+      .select('id, resort_id, asset_category, date, amount, discount, tax_service')
       .eq('resort_id', resortId)
       .gte('date', startDate)
       .lte('date', endDate);
@@ -238,7 +222,7 @@ export default function Invoices() {
     // Fetch profit sharing configs
     const { data: profitConfigs, error: profitError } = await supabase
       .from('profit_sharing_configs')
-      .select('*')
+      .select('id, resort_id, asset_category, dku_percentage, resort_percentage')
       .eq('resort_id', resortId);
 
     if (profitError) throw profitError;
@@ -266,7 +250,7 @@ export default function Invoices() {
     let totalDkuShare = 0;
     let totalResortShare = 0;
 
-    Object.entries(revenueByCategory).forEach(([category, { grossRevenue, netAmount }]) => {
+    Object.entries(revenueByCategory).forEach(([category, { netAmount }]) => {
       const config = profitConfigs?.find(c => c.asset_category === category);
       const dkuPercentage = config?.dku_percentage || 70;
       const resortPercentage = config?.resort_percentage || 30;
@@ -308,13 +292,14 @@ export default function Invoices() {
         return;
       }
 
-      const invoiceId = crypto.randomUUID();
+      const invoiceId = generateUUID();
       const invoiceNumber = await generateInvoiceNumber();
 
       // Create invoice
       const { error: invoiceError } = await supabase.from('invoices').insert([{
         id: invoiceId,
         invoice_number: invoiceNumber,
+        invoice_type: 'RENTAL',
         resort_id: formData.resort_id,
         start_date: formData.start_date,
         end_date: formData.end_date,
@@ -330,7 +315,7 @@ export default function Invoices() {
 
       // Create line items
       const lineItemsInserts = lineItems.map(item => ({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         invoice_id: invoiceId,
         ...item,
       }));
@@ -369,33 +354,47 @@ export default function Invoices() {
   const handleViewInvoice = async (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     
-    // Fetch line items
-    const { data, error } = await supabase
-      .from('invoice_line_items')
-      .select('*')
-      .eq('invoice_id', invoice.id);
+    // Fetch line items based on invoice type
+    if (invoice.invoice_type === 'CUSTOM') {
+      const { data, error } = await supabase
+        .from('custom_invoice_items')
+        .select('id, invoice_id, item_name, description, quantity, unit_price, total_price')
+        .eq('invoice_id', invoice.id);
 
-    if (error) {
-      console.error('Error fetching line items:', error);
-      return;
+      if (error) {
+        console.error('Error fetching custom items:', error);
+        return;
+      }
+
+      setLineItems(data || []);
+    } else {
+      const { data, error } = await supabase
+        .from('invoice_line_items')
+        .select('id, invoice_id, asset_category, revenue, dku_percentage, resort_percentage, dku_amount, resort_amount')
+        .eq('invoice_id', invoice.id);
+
+      if (error) {
+        console.error('Error fetching line items:', error);
+        return;
+      }
+
+      setLineItems(data || []);
     }
-
-    setLineItems(data || []);
   };
 
   const handleEditInvoice = async (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setFormData({
       resort_id: invoice.resort_id,
-      start_date: invoice.start_date,
-      end_date: invoice.end_date,
+      start_date: invoice.start_date || '',
+      end_date: invoice.end_date || '',
       bank_account_id: invoice.bank_account_id || '',
     });
     
     // Fetch line items
     const { data, error } = await supabase
       .from('invoice_line_items')
-      .select('*')
+      .select('id, invoice_id, asset_category, revenue, dku_percentage, resort_percentage, dku_amount, resort_amount')
       .eq('invoice_id', invoice.id);
 
     if (error) {
@@ -445,7 +444,7 @@ export default function Invoices() {
 
       // Create new line items
       const lineItemsInserts = newLineItems.map(item => ({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         invoice_id: selectedInvoice.id,
         ...item,
       }));
@@ -466,17 +465,24 @@ export default function Invoices() {
     }
   };
 
-  const handleDeleteInvoice = async (invoiceId: string) => {
+  const handleDeleteInvoice = async (invoiceId: string, invoiceType: InvoiceType) => {
     if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
       return;
     }
 
     try {
       // Delete line items first (foreign key constraint)
-      await supabase
-        .from('invoice_line_items')
-        .delete()
-        .eq('invoice_id', invoiceId);
+      if (invoiceType === 'CUSTOM') {
+        await supabase
+          .from('custom_invoice_items')
+          .delete()
+          .eq('invoice_id', invoiceId);
+      } else {
+        await supabase
+          .from('invoice_line_items')
+          .delete()
+          .eq('invoice_id', invoiceId);
+      }
 
       // Delete invoice
       const { error } = await supabase
@@ -495,11 +501,22 @@ export default function Invoices() {
 
   const handleViewPDF = async (invoice: Invoice) => {
     try {
-      // Fetch line items
-      const { data: items } = await supabase
-        .from('invoice_line_items')
-        .select('*')
-        .eq('invoice_id', invoice.id);
+      // For CUSTOM invoices, fetch custom items; for RENTAL, fetch line items
+      let items: any[] = [];
+      
+      if (invoice.invoice_type === 'CUSTOM') {
+        const { data: customItems } = await supabase
+          .from('custom_invoice_items')
+          .select('id, invoice_id, item_name, description, quantity, unit_price, total_price')
+          .eq('invoice_id', invoice.id);
+        items = customItems || [];
+      } else {
+        const { data: lineItems } = await supabase
+          .from('invoice_line_items')
+          .select('id, invoice_id, asset_category, revenue, dku_percentage, resort_percentage, dku_amount, resort_amount')
+          .eq('invoice_id', invoice.id);
+        items = lineItems || [];
+      }
 
       // Fetch company settings (bank account, NPWP, etc) - single source of truth
       const { data: companySettings } = await supabase
@@ -566,7 +583,7 @@ export default function Invoices() {
     
     try {
       const { error } = await supabase.from('bank_accounts').insert([{
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         ...bankFormData,
       }]);
 
@@ -647,7 +664,13 @@ export default function Invoices() {
                   onClick={() => setShowModal(true)}
                   className="px-6 py-3 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
                 >
-                  + Generate Invoice
+                  📊 Rental Invoice
+                </button>
+                <button
+                  onClick={() => setShowCustomModal(true)}
+                  className="px-6 py-3 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+                >
+                  📝 Custom Invoice
                 </button>
               </>
             )}
@@ -729,9 +752,9 @@ export default function Invoices() {
                 <thead>
                   <tr className="border-b border-purple-500/20">
                     <th className="text-left py-3 px-4 text-white/90 font-semibold">Invoice #</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Resort</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Period</th>
-                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Total Revenue</th>
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Customer/Resort</th>
+                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Date/Period</th>
+                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Total Amount</th>
                     <th className="text-right py-3 px-4 text-white/90 font-semibold">DKU Share</th>
                     <th className="text-center py-3 px-4 text-white/90 font-semibold">Status</th>
                     <th className="text-center py-3 px-4 text-white/90 font-semibold">Actions</th>
@@ -755,12 +778,19 @@ export default function Invoices() {
                       // Date filtering
                       let matchesDate = true;
                       if (startDate || endDate) {
-                        const invoiceDate = new Date(invoice.start_date);
-                        if (startDate) {
-                          matchesDate = matchesDate && invoiceDate >= new Date(startDate);
-                        }
-                        if (endDate) {
-                          matchesDate = matchesDate && invoiceDate <= new Date(endDate);
+                        const invoiceDate = invoice.start_date 
+                          ? new Date(invoice.start_date) 
+                          : invoice.invoice_date 
+                          ? new Date(invoice.invoice_date)
+                          : null;
+                        
+                        if (invoiceDate) {
+                          if (startDate) {
+                            matchesDate = matchesDate && invoiceDate >= new Date(startDate);
+                          }
+                          if (endDate) {
+                            matchesDate = matchesDate && invoiceDate <= new Date(endDate);
+                          }
                         }
                       }
                       
@@ -768,10 +798,27 @@ export default function Invoices() {
                     })
                     .map((invoice) => (
                     <tr key={invoice.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
-                      <td className="py-3 px-4 text-white font-medium">{invoice.invoice_number}</td>
-                      <td className="py-3 px-4 text-white/70">{invoice.resort?.name || '-'}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-medium">{invoice.invoice_number}</span>
+                          {invoice.invoice_type === 'CUSTOM' && (
+                            <span className="px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">
+                              Custom
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-white/70">
+                        {invoice.invoice_type === 'CUSTOM' && invoice.customer_name 
+                          ? invoice.customer_name 
+                          : invoice.resort?.name || '-'}
+                      </td>
                       <td className="py-3 px-4 text-white/70 text-sm">
-                        {new Date(invoice.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - {new Date(invoice.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {invoice.invoice_type === 'CUSTOM' && invoice.invoice_date
+                          ? new Date(invoice.invoice_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : invoice.start_date && invoice.end_date
+                          ? `${new Date(invoice.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${new Date(invoice.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                          : '-'}
                       </td>
                       <td className="py-3 px-4 text-right text-white font-bold">
                         Rp {invoice.total_revenue.toLocaleString('id-ID')}
@@ -800,7 +847,7 @@ export default function Invoices() {
                           >
                             📄
                           </button>
-                          {canCreate && invoice.status === 'DRAFT' && (
+                          {canCreate && invoice.status === 'DRAFT' && invoice.invoice_type === 'RENTAL' && (
                             <>
                               <button
                                 onClick={() => handleEditInvoice(invoice)}
@@ -829,7 +876,7 @@ export default function Invoices() {
                           )}
                           {canDelete && (
                             <button
-                              onClick={() => handleDeleteInvoice(invoice.id)}
+                              onClick={() => handleDeleteInvoice(invoice.id, invoice.invoice_type)}
                               className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs"
                               title="Delete"
                             >
@@ -852,12 +899,19 @@ export default function Invoices() {
                     
                     let matchesDate = true;
                     if (startDate || endDate) {
-                      const invoiceDate = new Date(invoice.start_date);
-                      if (startDate) {
-                        matchesDate = matchesDate && invoiceDate >= new Date(startDate);
-                      }
-                      if (endDate) {
-                        matchesDate = matchesDate && invoiceDate <= new Date(endDate);
+                      const invoiceDate = invoice.start_date 
+                        ? new Date(invoice.start_date) 
+                        : invoice.invoice_date 
+                        ? new Date(invoice.invoice_date)
+                        : null;
+                      
+                      if (invoiceDate) {
+                        if (startDate) {
+                          matchesDate = matchesDate && invoiceDate >= new Date(startDate);
+                        }
+                        if (endDate) {
+                          matchesDate = matchesDate && invoiceDate <= new Date(endDate);
+                        }
                       }
                     }
                     
@@ -1150,58 +1204,123 @@ export default function Invoices() {
                   <p className="font-semibold">{selectedInvoice.invoice_number}</p>
                 </div>
                 <div>
+                  <p className="text-sm text-gray-600">Type</p>
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                    selectedInvoice.invoice_type === 'CUSTOM' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {selectedInvoice.invoice_type === 'CUSTOM' ? 'Custom Invoice' : 'Rental Invoice'}
+                  </span>
+                </div>
+                <div>
                   <p className="text-sm text-gray-600">Status</p>
                   <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedInvoice.status)}`}>
                     {selectedInvoice.status}
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Resort</p>
-                  <p className="font-semibold">{selectedInvoice.resort?.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Period</p>
+                  <p className="text-sm text-gray-600">
+                    {selectedInvoice.invoice_type === 'CUSTOM' ? 'Customer' : 'Resort'}
+                  </p>
                   <p className="font-semibold">
-                    {new Date(selectedInvoice.start_date).toLocaleDateString()} - {new Date(selectedInvoice.end_date).toLocaleDateString()}
+                    {selectedInvoice.invoice_type === 'CUSTOM' && selectedInvoice.customer_name 
+                      ? selectedInvoice.customer_name 
+                      : selectedInvoice.resort?.name || '-'}
                   </p>
                 </div>
+                <div>
+                  <p className="text-sm text-gray-600">
+                    {selectedInvoice.invoice_type === 'CUSTOM' ? 'Invoice Date' : 'Period'}
+                  </p>
+                  <p className="font-semibold">
+                    {selectedInvoice.invoice_type === 'CUSTOM' && selectedInvoice.invoice_date
+                      ? new Date(selectedInvoice.invoice_date).toLocaleDateString('id-ID')
+                      : selectedInvoice.start_date && selectedInvoice.end_date
+                      ? `${new Date(selectedInvoice.start_date).toLocaleDateString()} - ${new Date(selectedInvoice.end_date).toLocaleDateString()}`
+                      : '-'}
+                  </p>
+                </div>
+                {selectedInvoice.invoice_type === 'CUSTOM' && selectedInvoice.customer_address && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-gray-600">Address</p>
+                    <p className="font-semibold">{selectedInvoice.customer_address}</p>
+                  </div>
+                )}
+                {selectedInvoice.notes && (
+                  <div className="col-span-2">
+                    <p className="text-sm text-gray-600">Notes</p>
+                    <p className="font-semibold">{selectedInvoice.notes}</p>
+                  </div>
+                )}
               </div>
 
               <div className="overflow-x-auto mb-6">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Asset Category</th>
-                      <th className="px-4 py-2 text-right">Revenue</th>
-                      <th className="px-4 py-2 text-right">DKU %</th>
-                      <th className="px-4 py-2 text-right">DKU Amount</th>
-                      <th className="px-4 py-2 text-right">Resort %</th>
-                      <th className="px-4 py-2 text-right">Resort Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lineItems.map((item) => (
-                      <tr key={item.id} className="border-b">
-                        <td className="px-4 py-2">{item.asset_category.replace('_', ' ')}</td>
-                        <td className="px-4 py-2 text-right">Rp {Number(item.revenue).toLocaleString('id-ID')}</td>
-                        <td className="px-4 py-2 text-right">{item.dku_percentage}%</td>
-                        <td className="px-4 py-2 text-right">Rp {Number(item.dku_amount).toLocaleString('id-ID')}</td>
-                        <td className="px-4 py-2 text-right">{item.resort_percentage}%</td>
-                        <td className="px-4 py-2 text-right">Rp {Number(item.resort_amount).toLocaleString('id-ID')}</td>
+                {selectedInvoice.invoice_type === 'CUSTOM' ? (
+                  // Custom Invoice Items Table - no item name column
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-center">No</th>
+                        <th className="px-4 py-2 text-left">Description</th>
+                        <th className="px-4 py-2 text-right">Qty</th>
+                        <th className="px-4 py-2 text-right">Unit Price</th>
+                        <th className="px-4 py-2 text-right">Total</th>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-gray-100 font-bold">
-                    <tr>
-                      <td className="px-4 py-2">TOTAL</td>
-                      <td className="px-4 py-2 text-right">Rp {Number(selectedInvoice.total_revenue).toLocaleString('id-ID')}</td>
-                      <td className="px-4 py-2"></td>
-                      <td className="px-4 py-2 text-right">Rp {Number(selectedInvoice.dku_share).toLocaleString('id-ID')}</td>
-                      <td className="px-4 py-2"></td>
-                      <td className="px-4 py-2 text-right">Rp {Number(selectedInvoice.resort_share).toLocaleString('id-ID')}</td>
-                    </tr>
-                  </tfoot>
-                </table>
+                    </thead>
+                    <tbody>
+                      {lineItems.map((item: any, index: number) => (
+                        <tr key={item.id} className="border-b">
+                          <td className="px-4 py-2 text-center">{index + 1}</td>
+                          <td className="px-4 py-2">{item.description || item.item_name || '-'}</td>
+                          <td className="px-4 py-2 text-right">{item.quantity}</td>
+                          <td className="px-4 py-2 text-right">Rp {Number(item.unit_price).toLocaleString('id-ID')}</td>
+                          <td className="px-4 py-2 text-right">Rp {Number(item.total_price).toLocaleString('id-ID')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-100 font-bold">
+                      <tr>
+                        <td colSpan={4} className="px-4 py-2 text-right">TOTAL</td>
+                        <td className="px-4 py-2 text-right">Rp {Number(selectedInvoice.total_revenue).toLocaleString('id-ID')}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                ) : (
+                  // Rental Invoice Line Items Table
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Asset Category</th>
+                        <th className="px-4 py-2 text-right">Revenue</th>
+                        <th className="px-4 py-2 text-right">DKU %</th>
+                        <th className="px-4 py-2 text-right">DKU Amount</th>
+                        <th className="px-4 py-2 text-right">Resort %</th>
+                        <th className="px-4 py-2 text-right">Resort Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lineItems.map((item: any) => (
+                        <tr key={item.id} className="border-b">
+                          <td className="px-4 py-2">{item.asset_category?.replace('_', ' ')}</td>
+                          <td className="px-4 py-2 text-right">Rp {Number(item.revenue).toLocaleString('id-ID')}</td>
+                          <td className="px-4 py-2 text-right">{item.dku_percentage}%</td>
+                          <td className="px-4 py-2 text-right">Rp {Number(item.dku_amount).toLocaleString('id-ID')}</td>
+                          <td className="px-4 py-2 text-right">{item.resort_percentage}%</td>
+                          <td className="px-4 py-2 text-right">Rp {Number(item.resort_amount).toLocaleString('id-ID')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-100 font-bold">
+                      <tr>
+                        <td className="px-4 py-2">TOTAL</td>
+                        <td className="px-4 py-2 text-right">Rp {Number(selectedInvoice.total_revenue).toLocaleString('id-ID')}</td>
+                        <td className="px-4 py-2"></td>
+                        <td className="px-4 py-2 text-right">Rp {Number(selectedInvoice.dku_share).toLocaleString('id-ID')}</td>
+                        <td className="px-4 py-2"></td>
+                        <td className="px-4 py-2 text-right">Rp {Number(selectedInvoice.resort_share).toLocaleString('id-ID')}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                )}
               </div>
 
               <button
@@ -1369,6 +1488,17 @@ export default function Invoices() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* Custom Invoice Modal */}
+        {showCustomModal && (
+          <CustomInvoiceModal
+            resorts={resorts}
+            bankAccounts={bankAccounts}
+            userId={user?.id || ''}
+            onClose={() => setShowCustomModal(false)}
+            onSuccess={fetchInvoices}
+          />
         )}
       </div>
     </Layout>

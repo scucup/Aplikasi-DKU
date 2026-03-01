@@ -14,15 +14,22 @@ interface Resort {
 interface Invoice {
   id: string;
   invoice_number: string;
+  invoice_type?: 'RENTAL' | 'CUSTOM';
   resort_id: string;
-  start_date: string;
-  end_date: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  invoice_date?: string | null;
+  customer_name?: string | null;
+  customer_address?: string | null;
+  customer_phone?: string | null;
+  customer_email?: string | null;
   total_revenue: number;
   dku_share: number;
   resort_share: number;
   status: string;
   generated_by: string;
   created_at: string;
+  notes?: string | null;
   resort?: Resort;
 }
 
@@ -38,7 +45,6 @@ interface InvoiceLineItem {
 }
 
 interface BankAccount {
-  id: string;
   bank_name: string;
   account_number: string;
   account_holder_name: string;
@@ -134,20 +140,21 @@ export const generateInvoicePDF = async (
   doc.text('To', leftCol, yPos);
   doc.text(':', leftCol + 10, yPos);
   
-  const resortLegalName = invoice.resort?.legal_company_name || invoice.resort?.name || '-';
-  const resortAddress = invoice.resort?.company_address || '-';
+  // Customer/Resort info - same format for both CUSTOM and RENTAL
+  const customerName = invoice.invoice_type === 'CUSTOM' && invoice.customer_name
+    ? invoice.customer_name
+    : (invoice.resort?.legal_company_name || invoice.resort?.name || '-');
+  
+  const customerAddress = invoice.invoice_type === 'CUSTOM' && invoice.customer_address
+    ? invoice.customer_address
+    : (invoice.resort?.company_address || '-');
   
   doc.setFont('helvetica', 'bold');
-  doc.text(resortLegalName, contentStartX, yPos);
-  yPos += 6;
-  
-  // Accounting Dept - aligned with company name
-  doc.setFont('helvetica', 'normal');
-  doc.text('Accounting Dept.', contentStartX, yPos);
+  doc.text(customerName, contentStartX, yPos);
   yPos += 6;
   
   // Split address into multiple lines if needed - aligned with company name
-  const addressLines = doc.splitTextToSize(resortAddress, 80);
+  const addressLines = doc.splitTextToSize(customerAddress, 80);
   addressLines.forEach((line: string) => {
     doc.text(line, contentStartX, yPos);
     yPos += 5;
@@ -173,73 +180,120 @@ export const generateInvoicePDF = async (
   
   doc.text('Term', rightCol, rightYPos);
   doc.text(': Cash', rightCol + 20, rightYPos);
-  rightYPos += 7;
   
-  // Billing Period
-  const startDateFormatted = new Date(invoice.start_date).toLocaleDateString('id-ID', { 
-    day: 'numeric', 
-    month: 'short', 
-    year: 'numeric' 
-  });
-  const endDateFormatted = new Date(invoice.end_date).toLocaleDateString('id-ID', { 
-    day: 'numeric', 
-    month: 'short', 
-    year: 'numeric' 
-  });
-  doc.text('Period', rightCol, rightYPos);
-  doc.text(`: ${startDateFormatted} - ${endDateFormatted}`, rightCol + 20, rightYPos);
+  // For RENTAL invoices, add Period info
+  if (invoice.invoice_type !== 'CUSTOM' && invoice.start_date && invoice.end_date) {
+    rightYPos += 7;
+    const startDateFormatted = new Date(invoice.start_date).toLocaleDateString('id-ID', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
+    const endDateFormatted = new Date(invoice.end_date).toLocaleDateString('id-ID', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
+    doc.text('Period', rightCol, rightYPos);
+    doc.text(`: ${startDateFormatted} - ${endDateFormatted}`, rightCol + 20, rightYPos);
+  }
   
-  // Period description - removed as per user request
-  yPos += 8;
+  // Add more spacing before table to prevent overlap
+  yPos = Math.max(yPos, rightYPos) + 10;
   
-  // Line items table - detailed breakdown with profit sharing
-  const tableData = lineItems.map((item) => [
-    item.asset_category.replace('_', ' '),
-    `Rp ${Math.floor(Number(item.revenue)).toLocaleString('id-ID')}`,
-    `${item.dku_percentage}%`,
-    `Rp ${Math.floor(Number(item.dku_amount)).toLocaleString('id-ID')}`,
-    `${item.resort_percentage}%`,
-    `Rp ${Math.floor(Number(item.resort_amount)).toLocaleString('id-ID')}`,
-  ]);
-  
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Asset Category', 'Revenue', 'DKU %', 'DKU Amount', 'Resort %', 'Resort Amount']],
-    body: tableData,
-    foot: [[
-      'TOTAL',
-      `Rp ${Math.floor(Number(invoice.total_revenue)).toLocaleString('id-ID')}`,
-      '',
-      `Rp ${Math.floor(Number(invoice.dku_share)).toLocaleString('id-ID')}`,
-      '',
-      `Rp ${Math.floor(Number(invoice.resort_share)).toLocaleString('id-ID')}`,
-    ]],
-    theme: 'grid',
-    headStyles: {
-      fillColor: [37, 99, 235], // Blue color matching DKU logo
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      halign: 'center',
-    },
-    footStyles: {
-      fillColor: [37, 99, 235], // Blue color matching DKU logo
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      halign: 'center',
-    },
-    styles: {
-      fontSize: 9,
-      cellPadding: 3,
-    },
-    columnStyles: {
-      0: { halign: 'left' },
-      1: { halign: 'right' },
-      2: { halign: 'center' },
-      3: { halign: 'right' },
-      4: { halign: 'center' },
-      5: { halign: 'right' },
-    },
-  } as any);
+  // Line items table - different format for CUSTOM vs RENTAL invoices
+  if (invoice.invoice_type === 'CUSTOM') {
+    // Custom invoice items table with numbering - no item name column
+    const tableData = lineItems.map((item: any, index: number) => [
+      (index + 1).toString(),
+      item.description || item.item_name || '-',
+      item.quantity.toString(),
+      `Rp ${Math.floor(Number(item.unit_price)).toLocaleString('id-ID')}`,
+      `Rp ${Math.floor(Number(item.total_price)).toLocaleString('id-ID')}`,
+    ]);
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [['No', 'Description', 'Qty', 'Unit Price', 'Total']],
+      body: tableData,
+      foot: [[
+        { content: 'TOTAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+        `Rp ${Math.floor(Number(invoice.total_revenue)).toLocaleString('id-ID')}`,
+      ]],
+      theme: 'grid',
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      footStyles: {
+        fillColor: [37, 99, 235],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        1: { halign: 'left', cellWidth: 90 },
+        2: { halign: 'center', cellWidth: 15 },
+        3: { halign: 'right', cellWidth: 33 },
+        4: { halign: 'right', cellWidth: 34 },
+      },
+    } as any);
+  } else {
+    // Rental invoice line items table - detailed breakdown with profit sharing
+    const tableData = lineItems.map((item: any) => [
+      item.asset_category?.replace('_', ' ') || '',
+      `Rp ${Math.floor(Number(item.revenue)).toLocaleString('id-ID')}`,
+      `${item.dku_percentage}%`,
+      `Rp ${Math.floor(Number(item.dku_amount)).toLocaleString('id-ID')}`,
+      `${item.resort_percentage}%`,
+      `Rp ${Math.floor(Number(item.resort_amount)).toLocaleString('id-ID')}`,
+    ]);
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Asset Category', 'Revenue', 'DKU %', 'DKU Amount', 'Resort %', 'Resort Amount']],
+      body: tableData,
+      foot: [[
+        'TOTAL',
+        `Rp ${Math.floor(Number(invoice.total_revenue)).toLocaleString('id-ID')}`,
+        '',
+        `Rp ${Math.floor(Number(invoice.dku_share)).toLocaleString('id-ID')}`,
+        '',
+        `Rp ${Math.floor(Number(invoice.resort_share)).toLocaleString('id-ID')}`,
+      ]],
+      theme: 'grid',
+      headStyles: {
+        fillColor: [37, 99, 235],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      footStyles: {
+        fillColor: [37, 99, 235],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      columnStyles: {
+        0: { halign: 'left' },
+        1: { halign: 'right' },
+        2: { halign: 'center' },
+        3: { halign: 'right' },
+        4: { halign: 'center' },
+        5: { halign: 'right' },
+      },
+    } as any);
+  }
   
   // Summary billing section
   let finalY = (doc as any).lastAutoTable.finalY + 5;

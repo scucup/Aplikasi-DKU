@@ -66,7 +66,7 @@ export default function Resorts() {
     try {
       const { data, error } = await supabase
         .from('resorts')
-        .select('*')
+        .select('id, name, address, company_address, legal_company_name, contact_name, contact_email, contact_phone, created_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -166,7 +166,7 @@ export default function Resorts() {
     // Fetch existing profit sharing configs
     const { data, error } = await supabase
       .from('profit_sharing_configs')
-      .select('*')
+      .select('id, resort_id, asset_category, dku_percentage, resort_percentage, effective_from')
       .eq('resort_id', resort.id)
       .order('effective_from', { ascending: false });
 

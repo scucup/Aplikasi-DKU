@@ -29,7 +29,7 @@ export default function ToolDetail() {
     // Fetch tool
     const { data: toolData, error: toolError } = await supabase
       .from('tools')
-      .select('*')
+      .select('id, name, category, resort_id, status, purchase_date, purchase_price, current_value, notes')
       .eq('id', id)
       .single();
 
@@ -45,7 +45,7 @@ export default function ToolDetail() {
     if (toolData?.resort_id) {
       const { data: resortData } = await supabase
         .from('resorts')
-        .select('*')
+        .select('id, name')
         .eq('id', toolData.resort_id)
         .single();
       
@@ -55,7 +55,7 @@ export default function ToolDetail() {
     // Fetch maintenance history
     const { data: maintenanceData } = await supabase
       .from('tool_maintenance_history')
-      .select('*')
+      .select('id, tool_id, maintenance_date, description, cost, performed_by')
       .eq('tool_id', id)
       .order('maintenance_date', { ascending: false });
 

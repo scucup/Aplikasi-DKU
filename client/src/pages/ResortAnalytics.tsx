@@ -6,6 +6,7 @@ import Layout from '../components/Layout';
 import AreaChart from '../components/charts/AreaChart';
 import LineChart from '../components/charts/LineChart';
 import { fetchProfitConfigs, processRevenueWithProfitSharing } from '../lib/profitSharing';
+import { getMonthYearLabel } from '../lib/utils';
 
 interface ResortPerformance {
   resort_id: string;
@@ -50,11 +51,6 @@ export default function ResortAnalytics() {
     }
     fetchResortAnalytics();
   }, [selectedPeriod, selectedMonth]);
-
-  const getMonthYearLabel = (date: Date) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${months[date.getMonth()]} ${date.getFullYear()}`;
-  };
 
   const fetchResortAnalytics = async () => {
     try {

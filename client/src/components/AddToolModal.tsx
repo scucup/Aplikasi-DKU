@@ -36,7 +36,7 @@ export default function AddToolModal({ isOpen, onClose, onSuccess }: AddToolModa
   const fetchResorts = async () => {
     const { data } = await supabase
       .from('resorts')
-      .select('*')
+      .select('id, name')
       .order('name');
     
     if (data) {
