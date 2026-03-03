@@ -200,13 +200,29 @@ export default function Expenses() {
 
   const fetchExpenses = async () => {
     try {
-      // Fetch expenses with only required columns
-      const { data: expensesData, error: expensesError } = await supabase
-        .from('expenses')
-        .select('id, category, description, amount, date, resort_id, status, submitted_by, approved_by, approval_date, approval_comments, supplier, created_at')
-        .order('created_at', { ascending: false });
+      // Fetch expenses with pagination to handle more than 1000 records
+      let allExpensesData: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: pageData, error: pageError } = await supabase
+          .from('expenses')
+          .select('id, category, description, amount, date, resort_id, status, submitted_by, approved_by, approval_date, approval_comments, supplier, created_at')
+          .order('created_at', { ascending: false })
+          .range(from, from + pageSize - 1);
 
-      if (expensesError) throw expensesError;
+        if (pageError) throw pageError;
+
+        if (pageData && pageData.length > 0) {
+          allExpensesData = [...allExpensesData, ...pageData];
+          from += pageSize;
+          hasMore = pageData.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
 
       // Fetch all users to map names - only id and name
       const { data: usersData, error: usersError } = await supabase
@@ -227,7 +243,7 @@ export default function Expenses() {
       const resortMap = new Map(resortsData?.map(r => [r.id, r.name]) || []);
 
       // Transform expenses with user and resort names
-      const transformedData = expensesData?.map((expense: any) => ({
+      const transformedData = allExpensesData?.map((expense: any) => ({
         ...expense,
         submitter: { name: userMap.get(expense.submitted_by) || 'Unknown' },
         approver: expense.approved_by ? { name: userMap.get(expense.approved_by) || 'Unknown' } : null,

@@ -239,11 +239,12 @@ export default function Dashboard() {
         // No period selected, show only the specific month
         const [year, month] = startingMonth.split('-').map(Number);
         
-        // First day of the month (local time, not UTC to match database dates)
-        startDate = new Date(year, month - 1, 1);
+        // First day of the month at 00:00:00 local time
+        startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
         
-        // Last day of the same month (get first day of NEXT month, then subtract 1 day)
-        endDate = new Date(year, month, 0); // This gives last day of current month
+        // Last day of the same month at 23:59:59.999 local time
+        // Use the last day of the month (day 0 of next month = last day of current month)
+        endDate = new Date(year, month, 0, 23, 59, 59, 999);
         
         monthsBack = 1;
       } else if (startingMonth && selectedPeriod) {
@@ -286,30 +287,69 @@ export default function Dashboard() {
       const maintenanceCount = assets?.filter(a => a.status === 'MAINTENANCE').length || 0;
       const utilizationRate = assets && assets.length > 0 ? (activeCount / assets.length) * 100 : 0;
 
-      // Fetch revenue records with pagination - SAME AS REVENUE PAGE
+      // Fetch revenue records with date filtering at database level
+      let revenueQuery = supabase
+        .from('revenue_records')
+        .select('*, resort:resorts(name)')
+        .order('date', { ascending: false })
+        .order('id', { ascending: true });
+      
+      // Apply same date filter logic as expenses
+      if (selectedPeriod === null && startingMonth) {
+        // Single month view
+        const [year, month] = startingMonth.split('-');
+        const startOfMonth = `${year}-${month}-01`;
+        const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+        const endOfMonth = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+        
+        revenueQuery = revenueQuery
+          .gte('date', startOfMonth)
+          .lte('date', endOfMonth);
+      } else if (selectedPeriod === 'all') {
+        // All time - no date filter
+      } else if (startingMonth && selectedPeriod) {
+        // Multi-month view with specific starting month
+        const [year, month] = startingMonth.split('-');
+        const monthsBack = selectedPeriod === '6m' ? 6 : 12;
+        
+        const startOfPeriod = `${year}-${month}-01`;
+        const endDate = new Date(parseInt(year), parseInt(month) + monthsBack - 1 + 1, 0);
+        const endOfPeriod = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        
+        revenueQuery = revenueQuery
+          .gte('date', startOfPeriod)
+          .lte('date', endOfPeriod);
+      } else if (selectedPeriod) {
+        // Default multi-month view from current month backwards
+        const monthsBack = selectedPeriod === '6m' ? 6 : 12;
+        const now = new Date();
+        
+        const startMonth = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1);
+        const startOfPeriod = `${startMonth.getFullYear()}-${String(startMonth.getMonth() + 1).padStart(2, '0')}-01`;
+        const endOfPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
+        revenueQuery = revenueQuery
+          .gte('date', startOfPeriod)
+          .lte('date', endOfPeriod);
+      } else {
+        // Default to current month
+        const now = new Date();
+        const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        const endOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
+        revenueQuery = revenueQuery
+          .gte('date', startOfMonth)
+          .lte('date', endOfMonth);
+      }
+      
+      // Fetch with pagination
       let allRevenueRecords: any[] = [];
       let from = 0;
       const pageSize = 1000;
       let hasMore = true;
       
-      // Format dates as YYYY-MM-DD in local timezone
-      const formatDate = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
-      
-      const startDateStr = formatDate(startDate);
-      const endDateStr = formatDate(endDate);
-      
-      // Fetch ALL records with pagination - SAME QUERY AS REVENUE PAGE
       while (hasMore) {
-        const { data: pageData, error: pageError } = await supabase
-          .from('revenue_records')
-          .select('*, resort:resorts(name)')
-          .order('date', { ascending: false })
-          .order('id', { ascending: true })
+        const { data: pageData, error: pageError } = await revenueQuery
           .range(from, from + pageSize - 1);
 
         if (pageError) {
@@ -332,11 +372,8 @@ export default function Dashboard() {
       // Process records with profit sharing data using utility function
       const recordsWithSharing = processRevenueWithProfitSharing(allRevenueRecords, profitConfigs);
 
-      // Filter by date range - SAME AS REVENUE PAGE FILTER
-      const filteredRecords = recordsWithSharing.filter(record => {
-        const recordDate = new Date(record.date);
-        return recordDate >= startDate && recordDate <= endDate;
-      });
+      // No need for client-side filtering since we filtered at database level
+      const filteredRecords = recordsWithSharing;
 
       // Calculate totals - SAME AS REVENUE PAGE
       const totalRevenue = filteredRecords.reduce((sum, record) => sum + Number(record.amount), 0);
@@ -405,17 +442,85 @@ export default function Dashboard() {
         // Don't accumulate totals here - already calculated above
       });
 
-      // Fetch expenses - SAME AS EXPENSES PAGE
-      const { data: allExpensesData } = await supabase
-        .from('expenses')
-        .select('amount, status, date, category');
+      // Fetch expenses with pagination for all periods
+      let allExpensesData: any[] = [];
+      let expensesFrom = 0;
+      const expensesPageSize = 1000;
+      let hasMoreExpenses = true;
       
-      // Filter by date range - SAME AS EXPENSES PAGE
-      // Parse date as YYYY-MM-DD string comparison to avoid timezone issues
-      const filteredExpenses = allExpensesData?.filter(expense => {
-        // Compare dates as strings in YYYY-MM-DD format
-        return expense.date >= startDateStr && expense.date <= endDateStr;
-      }) || [];
+      while (hasMoreExpenses) {
+        let expensesQuery = supabase
+          .from('expenses')
+          .select('amount, status, date, category')
+          .order('date', { ascending: false })
+          .order('id', { ascending: true })
+          .range(expensesFrom, expensesFrom + expensesPageSize - 1);
+        
+        // Apply date filter for specific periods (not for All Time)
+        if (selectedPeriod === null && startingMonth) {
+          // Single month view
+          const [year, month] = startingMonth.split('-');
+          const startOfMonth = `${year}-${month}-01`;
+          const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+          const endOfMonth = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+          
+          expensesQuery = expensesQuery
+            .gte('date', startOfMonth)
+            .lte('date', endOfMonth);
+        } else if (selectedPeriod === 'all') {
+          // All time - no date filter, fetch everything with pagination
+        } else if (startingMonth && selectedPeriod) {
+          // Multi-month view with specific starting month
+          const [year, month] = startingMonth.split('-');
+          const monthsBack = selectedPeriod === '6m' ? 6 : 12;
+          
+          const startOfPeriod = `${year}-${month}-01`;
+          const endDate = new Date(parseInt(year), parseInt(month) + monthsBack - 1 + 1, 0);
+          const endOfPeriod = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+          
+          expensesQuery = expensesQuery
+            .gte('date', startOfPeriod)
+            .lte('date', endOfPeriod);
+        } else if (selectedPeriod) {
+          // Default multi-month view from current month backwards
+          const monthsBack = selectedPeriod === '6m' ? 6 : 12;
+          const now = new Date();
+          
+          const startMonth = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1);
+          const startOfPeriod = `${startMonth.getFullYear()}-${String(startMonth.getMonth() + 1).padStart(2, '0')}-01`;
+          const endOfPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          
+          expensesQuery = expensesQuery
+            .gte('date', startOfPeriod)
+            .lte('date', endOfPeriod);
+        } else {
+          // Default to current month
+          const now = new Date();
+          const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+          const endOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          
+          expensesQuery = expensesQuery
+            .gte('date', startOfMonth)
+            .lte('date', endOfMonth);
+        }
+        
+        const { data: pageData, error: pageError } = await expensesQuery;
+        
+        if (pageError) {
+          console.error('Error fetching expenses data:', pageError);
+          throw pageError;
+        }
+        
+        if (pageData && pageData.length > 0) {
+          allExpensesData = [...allExpensesData, ...pageData];
+          expensesFrom += expensesPageSize;
+          hasMoreExpenses = pageData.length === expensesPageSize;
+        } else {
+          hasMoreExpenses = false;
+        }
+      }
+      
+      const filteredExpenses = allExpensesData || [];
       
       // Calculate totals - SAME AS EXPENSES PAGE (APPROVED only for net profit)
       const approvedExpenses = filteredExpenses
@@ -437,6 +542,7 @@ export default function Dashboard() {
           const expenseDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
           const monthKey = `${expenseDate.getFullYear()}-${String(expenseDate.getMonth() + 1).padStart(2, '0')}`;
           const monthYearLabel = getMonthYearLabel(expenseDate);
+          
           monthlyExpenses[monthKey] = (monthlyExpenses[monthKey] || 0) + expenseAmount;
           
           // Group by category
@@ -466,12 +572,52 @@ export default function Dashboard() {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'PENDING');
 
-      // Fetch maintenance costs
+      // Fetch maintenance costs with same date filtering as revenue and expenses
       let maintenanceQuery = supabase
         .from('maintenance_records')
-        .select('labor_cost, sparepart_cost, start_date')
-        .gte('start_date', startDateStr)
-        .lte('start_date', endDateStr);
+        .select('labor_cost, sparepart_cost, start_date');
+      
+      // Apply same date filter logic as revenue (which is working correctly)
+      if (selectedPeriod === null && startingMonth) {
+        const [year, month] = startingMonth.split('-');
+        const startOfMonth = `${year}-${month}-01`;
+        const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+        const endOfMonth = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+        
+        maintenanceQuery = maintenanceQuery
+          .gte('start_date', startOfMonth)
+          .lte('start_date', endOfMonth);
+      } else if (selectedPeriod === 'all') {
+        // All time - no filter
+      } else if (startingMonth && selectedPeriod) {
+        const [year, month] = startingMonth.split('-');
+        const monthsBack = selectedPeriod === '6m' ? 6 : 12;
+        const startOfPeriod = `${year}-${month}-01`;
+        const endDate = new Date(parseInt(year), parseInt(month) + monthsBack - 1 + 1, 0);
+        const endOfPeriod = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        
+        maintenanceQuery = maintenanceQuery
+          .gte('start_date', startOfPeriod)
+          .lte('start_date', endOfPeriod);
+      } else if (selectedPeriod) {
+        const monthsBack = selectedPeriod === '6m' ? 6 : 12;
+        const now = new Date();
+        const startMonth = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1);
+        const startOfPeriod = `${startMonth.getFullYear()}-${String(startMonth.getMonth() + 1).padStart(2, '0')}-01`;
+        const endOfPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
+        maintenanceQuery = maintenanceQuery
+          .gte('start_date', startOfPeriod)
+          .lte('start_date', endOfPeriod);
+      } else {
+        const now = new Date();
+        const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        const endOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
+        maintenanceQuery = maintenanceQuery
+          .gte('start_date', startOfMonth)
+          .lte('start_date', endOfMonth);
+      }
       
       const { data: maintenanceRecords } = await maintenanceQuery;
 
