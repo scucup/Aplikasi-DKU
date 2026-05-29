@@ -58,6 +58,7 @@ export default function Layout({ children }: LayoutProps) {
     if (profile?.role === 'ADMIN') {
       return [
         ...baseNav,
+        { name: 'Assets', path: '/assets', icon: 'asset' },
         { name: 'Revenue', path: '/revenue', icon: 'revenue' },
         { name: 'Invoices', path: '/invoices', icon: 'invoice' },
         { name: 'Expenses', path: '/expenses', icon: 'expense' },
