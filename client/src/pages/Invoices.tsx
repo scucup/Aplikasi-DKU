@@ -877,22 +877,22 @@ export default function Invoices() {
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                           </button>
                           {canCreate && invoice.status === 'DRAFT' && invoice.invoice_type === 'RENTAL' && (
-                            <>
-                              <button
-                                onClick={() => handleEditInvoice(invoice)}
-                                className="w-7 h-7 flex items-center justify-center bg-amber-600/20 text-amber-400 rounded hover:bg-amber-600/40 transition-colors"
-                                title="Edit"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                              </button>
-                              <button
-                                onClick={() => handleUpdateStatus(invoice.id, 'SENT')}
-                                className="w-7 h-7 flex items-center justify-center bg-indigo-600/20 text-indigo-400 rounded hover:bg-indigo-600/40 transition-colors"
-                                title="Mark as Sent"
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                              </button>
-                            </>
+                            <button
+                              onClick={() => handleEditInvoice(invoice)}
+                              className="w-7 h-7 flex items-center justify-center bg-amber-600/20 text-amber-400 rounded hover:bg-amber-600/40 transition-colors"
+                              title="Edit"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
+                          )}
+                          {canCreate && invoice.status === 'DRAFT' && (
+                            <button
+                              onClick={() => handleUpdateStatus(invoice.id, 'SENT')}
+                              className="w-7 h-7 flex items-center justify-center bg-indigo-600/20 text-indigo-400 rounded hover:bg-indigo-600/40 transition-colors"
+                              title="Mark as Sent"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                            </button>
                           )}
                           {canCreate && invoice.status === 'SENT' && (
                             <button
@@ -916,28 +916,7 @@ export default function Invoices() {
                       </td>
                     </tr>
                   ))}
-                  {invoices.filter((invoice) => {
-                    const invoiceNumber = invoice.invoice_number || '';
-                    const resortName = invoice.resort?.name || '';
-                    const search = searchTerm.toLowerCase();
-                    const matchesSearch = invoiceNumber.toLowerCase().includes(search) ||
-                                        resortName.toLowerCase().includes(search);
-                    const matchesResort = selectedResort === 'all' || invoice.resort_id === selectedResort;
-                    const matchesStatus = selectedStatus === 'all' || invoice.status === selectedStatus;
-                    let matchesDate = true;
-                    if (startDate || endDate) {
-                      const invoiceDate = invoice.start_date 
-                        ? new Date(invoice.start_date) 
-                        : invoice.invoice_date 
-                        ? new Date(invoice.invoice_date)
-                        : null;
-                      if (invoiceDate) {
-                        if (startDate) matchesDate = matchesDate && invoiceDate >= new Date(startDate);
-                        if (endDate) matchesDate = matchesDate && invoiceDate <= new Date(endDate);
-                      }
-                    }
-                    return matchesSearch && matchesResort && matchesStatus && matchesDate;
-                  }).length === 0 && (
+                  {filteredInvoices.length === 0 && (
                     <tr>
                       <td colSpan={7} className="py-12 text-center text-slate-500 text-sm">
                         {searchTerm || selectedResort !== 'all' || selectedStatus !== 'all' || startDate || endDate 
