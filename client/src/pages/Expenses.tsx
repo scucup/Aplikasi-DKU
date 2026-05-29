@@ -456,7 +456,7 @@ export default function Expenses() {
   };
 
   // Handle edit expense
-  const handleEditExpense = (expense: Expense) => {
+  const handleEditExpense = async (expense: Expense) => {
     setEditingExpense(expense);
     setFormData({
       category: expense.category,
@@ -466,6 +466,61 @@ export default function Expenses() {
       resort_id: expense.resort_id || '',
       supplier: expense.supplier || '',
     });
+
+    // If SPAREPART, fetch existing sparepart items
+    if (expense.category === 'SPAREPART') {
+      try {
+        const { data: items, error } = await supabase
+          .from('expense_spareparts')
+          .select('id, sparepart_name, quantity, unit_price, total_price, asset_category, unit')
+          .eq('expense_id', expense.id);
+
+        if (!error && items && items.length > 0) {
+          setSparepartItems(items.map(item => ({
+            id: item.id,
+            sparepart_name: item.sparepart_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            asset_category: item.asset_category || '',
+            unit: item.unit || 'pcs',
+          })));
+        } else {
+          resetSparepartItems();
+        }
+      } catch (err) {
+        console.error('Error fetching sparepart items:', err);
+        resetSparepartItems();
+      }
+    } else if (expense.category === 'TOOLS') {
+      try {
+        const { data: toolData, error } = await supabase
+          .from('expense_tools')
+          .select('tool_name, category, brand, model, serial_number, condition, warranty_until, notes')
+          .eq('expense_id', expense.id)
+          .maybeSingle();
+
+        if (!error && toolData) {
+          setToolItem({
+            id: crypto.randomUUID(),
+            tool_name: toolData.tool_name || '',
+            category: toolData.category || 'Hand Tools',
+            brand: toolData.brand || '',
+            model: toolData.model || '',
+            serial_number: toolData.serial_number || '',
+            condition: toolData.condition || 'good',
+            warranty_until: toolData.warranty_until || '',
+            notes: toolData.notes || '',
+          });
+        } else {
+          resetToolItem();
+        }
+      } catch (err) {
+        console.error('Error fetching tool details:', err);
+        resetToolItem();
+      }
+    }
+
     setShowEditModal(true);
   };
 
@@ -475,6 +530,28 @@ export default function Expenses() {
     if (!editingExpense) return;
 
     try {
+      // Validate sparepart items
+      if (formData.category === 'SPAREPART') {
+        if (!formData.resort_id) {
+          alert('Please select a resort for Sparepart expenses');
+          return;
+        }
+        if (!formData.supplier.trim()) {
+          alert('Please enter supplier name for Sparepart expenses');
+          return;
+        }
+        const invalidItems = sparepartItems.filter(item => 
+          !item.sparepart_name.trim() || 
+          item.quantity <= 0 || 
+          item.unit_price <= 0 ||
+          !item.asset_category
+        );
+        if (invalidItems.length > 0) {
+          alert('Please fill in all sparepart item fields (name, category, quantity, and unit price)');
+          return;
+        }
+      }
+
       const finalAmount = formData.category === 'SPAREPART' ? sparepartTotal : parseFloat(formData.amount);
 
       const { error } = await supabase
@@ -485,12 +562,70 @@ export default function Expenses() {
           amount: finalAmount,
           date: formData.date,
           resort_id: formData.resort_id || null,
-          supplier: formData.category === 'SPAREPART' ? formData.supplier : null,
+          supplier: (formData.category === 'SPAREPART' || formData.category === 'TOOLS') ? formData.supplier : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', editingExpense.id);
 
       if (error) throw error;
+
+      // Update sparepart items if category is SPAREPART
+      if (formData.category === 'SPAREPART') {
+        // Delete old sparepart items
+        await supabase
+          .from('expense_spareparts')
+          .delete()
+          .eq('expense_id', editingExpense.id);
+
+        // Insert new sparepart items
+        const sparepartData = sparepartItems.map(item => ({
+          id: crypto.randomUUID(),
+          expense_id: editingExpense.id,
+          sparepart_name: item.sparepart_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          asset_category: item.asset_category,
+          unit: item.unit,
+        }));
+
+        const { error: sparepartError } = await supabase
+          .from('expense_spareparts')
+          .insert(sparepartData);
+
+        if (sparepartError) {
+          console.error('Error updating sparepart items:', sparepartError);
+        }
+      }
+
+      // Update tool details if category is TOOLS
+      if (formData.category === 'TOOLS') {
+        // Delete old tool details
+        await supabase
+          .from('expense_tools')
+          .delete()
+          .eq('expense_id', editingExpense.id);
+
+        // Insert new tool details
+        const { error: toolError } = await supabase
+          .from('expense_tools')
+          .insert({
+            id: crypto.randomUUID(),
+            expense_id: editingExpense.id,
+            tool_name: toolItem.tool_name,
+            category: toolItem.category,
+            brand: toolItem.brand,
+            model: toolItem.model,
+            serial_number: toolItem.serial_number,
+            condition: toolItem.condition,
+            warranty_until: toolItem.warranty_until || null,
+            notes: toolItem.notes,
+          });
+
+        if (toolError) {
+          console.error('Error updating tool details:', toolError);
+        }
+      }
 
       setShowEditModal(false);
       setEditingExpense(null);
@@ -502,6 +637,8 @@ export default function Expenses() {
         resort_id: '',
         supplier: '',
       });
+      resetSparepartItems();
+      resetToolItem();
       fetchExpenses();
       alert('Expense updated successfully!');
     } catch (error: any) {
@@ -1669,9 +1806,10 @@ export default function Expenses() {
                 
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
-                    Resort
+                    Resort {formData.category === 'SPAREPART' ? '*' : ''}
                   </label>
                   <select
+                    required={formData.category === 'SPAREPART'}
                     value={formData.resort_id}
                     onChange={(e) => setFormData({ ...formData, resort_id: e.target.value })}
                     className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
@@ -1683,7 +1821,137 @@ export default function Expenses() {
                       </option>
                     ))}
                   </select>
+                  {formData.category === 'SPAREPART' && (
+                    <p className="text-xs text-slate-400 mt-1">Required: Select resort for sparepart inventory</p>
+                  )}
                 </div>
+
+                {/* Supplier - for SPAREPART and TOOLS */}
+                {(formData.category === 'SPAREPART' || formData.category === 'TOOLS') && (
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Supplier *</label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.supplier}
+                      onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400 placeholder-slate-500"
+                      placeholder="Enter supplier name"
+                    />
+                  </div>
+                )}
+
+                {/* Sparepart Items - Only for SPAREPART category */}
+                {formData.category === 'SPAREPART' && (
+                  <div className="border border-navy-600/50 rounded-lg p-4 bg-navy-900">
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="block text-sm font-medium text-white">
+                        Sparepart Items *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addSparepartItem}
+                        className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        + Add Item
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {sparepartItems.map((item, index) => (
+                        <div key={item.id} className="bg-navy-800 rounded-lg p-3">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs text-slate-400">Item #{index + 1}</span>
+                            {sparepartItems.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeSparepartItem(item.id)}
+                                className="text-red-400 hover:text-red-300 text-xs"
+                              >
+                                ✕ Remove
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 gap-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="text"
+                                placeholder="Sparepart Name"
+                                value={item.sparepart_name}
+                                onChange={(e) => updateSparepartItem(item.id, 'sparepart_name', e.target.value)}
+                                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm placeholder-slate-500"
+                              />
+                              <select
+                                value={item.asset_category}
+                                onChange={(e) => updateSparepartItem(item.id, 'asset_category', e.target.value)}
+                                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
+                              >
+                                <option value="" className="bg-slate-800">-- Asset Category --</option>
+                                {ASSET_CATEGORIES.map((cat) => (
+                                  <option key={cat} value={cat} className="bg-slate-800">{cat.replace('_', ' ')}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              <div>
+                                <label className="text-xs text-slate-400">Qty</label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  placeholder="Qty"
+                                  value={item.quantity}
+                                  onChange={(e) => updateSparepartItem(item.id, 'quantity', parseInt(e.target.value) || 0)}
+                                  className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-slate-400">Unit</label>
+                                <select
+                                  value={item.unit}
+                                  onChange={(e) => updateSparepartItem(item.id, 'unit', e.target.value)}
+                                  className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
+                                >
+                                  <option value="pcs" className="bg-slate-800">pcs</option>
+                                  <option value="liter" className="bg-slate-800">liter</option>
+                                  <option value="kg" className="bg-slate-800">kg</option>
+                                  <option value="set" className="bg-slate-800">set</option>
+                                  <option value="box" className="bg-slate-800">box</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-xs text-slate-400">Unit Price</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="Price"
+                                  value={item.unit_price}
+                                  onChange={(e) => updateSparepartItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
+                                  className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-xs text-slate-400">Total</label>
+                                <div className="px-3 py-2 bg-white/5 border border-white/10 text-white rounded-lg text-sm">
+                                  Rp {item.total_price.toLocaleString('id-ID')}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Total Amount Display */}
+                    <div className="mt-4 pt-3 border-t border-navy-600/50">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-white">Total Amount:</span>
+                        <span className="text-lg font-bold text-green-400">
+                          Rp {sparepartTotal.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
@@ -1699,17 +1967,20 @@ export default function Expenses() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">Amount *</label>
-                  <input
-                    type="number"
-                    required
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400 placeholder-slate-500"
-                    placeholder="Enter amount"
-                  />
-                </div>
+                {/* Amount - hidden for SPAREPART since it's auto-calculated */}
+                {formData.category !== 'SPAREPART' && (
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">Amount *</label>
+                    <input
+                      type="number"
+                      required
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400 placeholder-slate-500"
+                      placeholder="Enter amount"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">Date *</label>
@@ -1736,6 +2007,8 @@ export default function Expenses() {
                         resort_id: '',
                         supplier: '',
                       });
+                      resetSparepartItems();
+                      resetToolItem();
                     }}
                     className="flex-1 px-4 py-2 bg-navy-800 text-white rounded-lg hover:bg-navy-700 transition-colors"
                   >
