@@ -132,8 +132,8 @@ export default function Expenses() {
   const sparepartTotal = sparepartItems.reduce((sum, item) => sum + item.total_price, 0);
 
   useEffect(() => {
-    fetchExpenses();
-    fetchResorts();
+    // Fetch all initial data in parallel
+    Promise.all([fetchExpenses(), fetchResorts()]);
   }, []);
 
   const fetchResorts = async () => {
@@ -200,6 +200,12 @@ export default function Expenses() {
 
   const fetchExpenses = async () => {
     try {
+      // Fetch users and resorts in PARALLEL with expenses for faster loading
+      const [usersResult, resortsResult] = await Promise.all([
+        supabase.from('users').select('id, name'),
+        supabase.from('resorts').select('id, name'),
+      ]);
+
       // Fetch expenses with pagination to handle more than 1000 records
       let allExpensesData: any[] = [];
       let from = 0;
@@ -224,23 +230,9 @@ export default function Expenses() {
         }
       }
 
-      // Fetch all users to map names - only id and name
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('id, name');
-
-      if (usersError) throw usersError;
-
-      // Fetch all resorts to map names - only id and name
-      const { data: resortsData, error: resortsError } = await supabase
-        .from('resorts')
-        .select('id, name');
-
-      if (resortsError) throw resortsError;
-
       // Create maps
-      const userMap = new Map(usersData?.map(u => [u.id, u.name]) || []);
-      const resortMap = new Map(resortsData?.map(r => [r.id, r.name]) || []);
+      const userMap = new Map(usersResult.data?.map(u => [u.id, u.name]) || []);
+      const resortMap = new Map(resortsResult.data?.map(r => [r.id, r.name]) || []);
 
       // Transform expenses with user and resort names
       const transformedData = allExpensesData?.map((expense: any) => ({

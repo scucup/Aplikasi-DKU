@@ -106,9 +106,8 @@ export default function Invoices() {
   });
 
   useEffect(() => {
-    fetchInvoices();
-    fetchResorts();
-    fetchBankAccounts();
+    // Fetch all initial data in parallel
+    Promise.all([fetchInvoices(), fetchResorts(), fetchBankAccounts()]);
   }, []);
 
   const fetchResorts = async () => {
@@ -173,21 +172,22 @@ export default function Invoices() {
 
   const fetchInvoices = async () => {
     try {
-      const { data: invoicesData, error: invoicesError } = await supabase
-        .from('invoices')
-        .select('id, invoice_number, invoice_type, resort_id, start_date, end_date, invoice_date, customer_name, customer_address, customer_phone, customer_email, total_revenue, dku_share, resort_share, status, generated_by, created_at, bank_account_id, notes')
-        .order('created_at', { ascending: false });
+      // Fetch invoices, resorts, and users in PARALLEL for faster loading
+      const [invoicesResult, resortsResult, usersResult] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('id, invoice_number, invoice_type, resort_id, start_date, end_date, invoice_date, customer_name, customer_address, customer_phone, customer_email, total_revenue, dku_share, resort_share, status, generated_by, created_at, bank_account_id, notes')
+          .order('created_at', { ascending: false }),
+        supabase.from('resorts').select('id, name, legal_company_name, company_address, contact_name, contact_email, contact_phone'),
+        supabase.from('users').select('id, name'),
+      ]);
 
-      if (invoicesError) throw invoicesError;
+      if (invoicesResult.error) throw invoicesResult.error;
 
-      // Fetch resorts and users
-      const { data: resortsData } = await supabase.from('resorts').select('id, name, legal_company_name, company_address, contact_name, contact_email, contact_phone');
-      const { data: usersData } = await supabase.from('users').select('id, name');
+      const resortMap = new Map(resortsResult.data?.map(r => [r.id, r]) || []);
+      const userMap = new Map(usersResult.data?.map(u => [u.id, u.name]) || []);
 
-      const resortMap = new Map(resortsData?.map(r => [r.id, r]) || []);
-      const userMap = new Map(usersData?.map(u => [u.id, u.name]) || []);
-
-      const transformedData = invoicesData?.map((invoice: any) => ({
+      const transformedData = invoicesResult.data?.map((invoice: any) => ({
         ...invoice,
         resort: resortMap.get(invoice.resort_id),
         generator: { name: userMap.get(invoice.generated_by) || 'Unknown' },

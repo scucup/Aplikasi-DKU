@@ -64,8 +64,8 @@ export default function Revenue() {
   }, [searchTerm]);
 
   useEffect(() => {
-    fetchRecords();
-    fetchResorts();
+    // Fetch all initial data in parallel
+    Promise.all([fetchRecords(), fetchResorts()]);
   }, []);
 
   const fetchResorts = async () => {
@@ -105,8 +105,11 @@ export default function Revenue() {
 
   const fetchRecords = async () => {
     try {
-      const allRecords = await fetchAllRevenueRecords(supabase);
-      const profitConfigs = await fetchProfitConfigs(supabase);
+      // Fetch revenue records and profit configs in PARALLEL for faster loading
+      const [allRecords, profitConfigs] = await Promise.all([
+        fetchAllRevenueRecords(supabase),
+        fetchProfitConfigs(supabase),
+      ]);
       const recordsWithSharing = processRevenueWithProfitSharing(allRecords, profitConfigs);
       setRecords(recordsWithSharing);
     } catch (error) {
