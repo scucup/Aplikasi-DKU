@@ -62,6 +62,8 @@ export default function Layout({ children }: LayoutProps) {
         { name: 'Revenue', path: '/revenue', icon: 'revenue' },
         { name: 'Invoices', path: '/invoices', icon: 'invoice' },
         { name: 'Expenses', path: '/expenses', icon: 'expense' },
+        { name: 'Spareparts', path: '/spareparts', icon: 'sparepart' },
+        { name: 'Tools', path: '/tools', icon: 'tool' },
         { name: 'Notifications', path: '/notifications', icon: 'notification' },
       ];
     }
