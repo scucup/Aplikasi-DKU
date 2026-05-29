@@ -142,19 +142,19 @@ export default function Tools() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
           <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Total</div>
-          <div className="text-2xl font-bold text-white mt-1">{tools.length}</div>
+          <div className="text-2xl font-bold text-white mt-1">{filteredTools.length}</div>
         </div>
         <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
           <div className="text-xs text-green-400 font-medium uppercase tracking-wider">Good</div>
-          <div className="text-2xl font-bold text-white mt-1">{tools.filter(t => t.condition === 'good').length}</div>
+          <div className="text-2xl font-bold text-white mt-1">{filteredTools.filter(t => t.condition === 'good').length}</div>
         </div>
         <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
           <div className="text-xs text-orange-400 font-medium uppercase tracking-wider">Need Repair</div>
-          <div className="text-2xl font-bold text-white mt-1">{tools.filter(t => ['poor', 'damaged'].includes(t.condition)).length}</div>
+          <div className="text-2xl font-bold text-white mt-1">{filteredTools.filter(t => ['poor', 'damaged'].includes(t.condition)).length}</div>
         </div>
         <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
-          <div className="text-xs text-red-400 font-medium uppercase tracking-wider">Lost</div>
-          <div className="text-2xl font-bold text-white mt-1">{tools.filter(t => t.condition === 'lost').length}</div>
+          <div className="text-xs text-emerald-400 font-medium uppercase tracking-wider">Total Value</div>
+          <div className="text-lg font-bold text-white mt-1 whitespace-nowrap">Rp{'\u00A0'}{filteredTools.reduce((sum, t) => sum + t.purchase_price, 0).toLocaleString('id-ID')}</div>
         </div>
       </div>
 
