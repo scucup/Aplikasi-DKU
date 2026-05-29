@@ -268,7 +268,7 @@ export default function Resorts() {
           {canCreate && (
             <button
               onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+              className="px-6 py-3 bg-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
             >
               + Add Resort
             </button>
@@ -285,19 +285,19 @@ export default function Resorts() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-navy-600/50 border-t-blue-500"></div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {resorts.map((resort) => (
               <div
                 key={resort.id}
-                className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 hover:border-purple-500/50 transition-all relative group"
+                className="bg-navy-900 rounded-2xl p-6 border border-navy-700/50 hover:border-navy-600 transition-all relative group"
               >
                 {canCreate && (
                   <button
                     onClick={() => handleEdit(resort)}
-                    className="absolute top-4 right-4 p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors opacity-0 group-hover:opacity-100"
+                    className="absolute top-4 right-4 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors opacity-0 group-hover:opacity-100"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -307,7 +307,7 @@ export default function Resorts() {
                 
                 <h3 className="text-xl font-bold text-white mb-4 pr-12">{resort.name}</h3>
                 
-                <div className="space-y-2 text-sm text-white/70 mb-4">
+                <div className="space-y-2 text-sm text-slate-400 mb-4">
                   <p>
                     <span className="font-medium text-white/90">Contact:</span> {resort.contact_name || '-'}
                   </p>
@@ -353,7 +353,7 @@ export default function Resorts() {
         {/* Add Resort Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-2xl w-full border border-purple-500/30 max-h-[90vh] overflow-y-auto">
+            <div className="bg-navy-900 rounded-2xl p-8 max-w-2xl w-full border border-navy-600/50 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-white mb-6">Add New Resort</h2>
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Resort Information */}
@@ -368,7 +368,7 @@ export default function Resorts() {
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -379,7 +379,7 @@ export default function Resorts() {
                       type="text"
                       value={formData.legal_company_name}
                       onChange={(e) => setFormData({ ...formData, legal_company_name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="e.g., PT. Anugerah Nusantara"
                     />
                   </div>
@@ -390,7 +390,7 @@ export default function Resorts() {
                     <textarea
                       value={formData.company_address}
                       onChange={(e) => setFormData({ ...formData, company_address: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="e.g., Waterfront Batam, Batam, Indonesia"
                       rows={2}
                     />
@@ -404,7 +404,7 @@ export default function Resorts() {
                         type="text"
                         value={formData.contact_name}
                         onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -415,7 +415,7 @@ export default function Resorts() {
                         type="email"
                         value={formData.contact_email}
                         onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -426,7 +426,7 @@ export default function Resorts() {
                         type="tel"
                         value={formData.contact_phone}
                         onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -435,9 +435,9 @@ export default function Resorts() {
                 {/* Profit Sharing Configuration */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-white">Profit Sharing per Asset Category</h3>
-                  <div className="bg-purple-900/30 rounded-lg p-4 space-y-3 border border-purple-500/20">
+                  <div className="bg-navy-900 rounded-lg p-4 space-y-3 border border-navy-700/50">
                     {(['ATV', 'UTV', 'SEA_SPORT', 'POOL_TOYS', 'LINE_SPORT'] as AssetCategory[]).map((category) => (
-                      <div key={category} className={`grid grid-cols-4 gap-4 items-center p-3 rounded-lg transition-all ${profitSharingData[category].enabled ? 'bg-purple-800/30' : 'bg-gray-800/20 opacity-60'}`}>
+                      <div key={category} className={`grid grid-cols-4 gap-4 items-center p-3 rounded-lg transition-all ${profitSharingData[category].enabled ? 'bg-navy-800' : 'bg-gray-800/20 opacity-60'}`}>
                         <div className="flex items-center gap-3">
                           <input
                             type="checkbox"
@@ -446,14 +446,14 @@ export default function Resorts() {
                               ...profitSharingData,
                               [category]: { ...profitSharingData[category], enabled: e.target.checked }
                             })}
-                            className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
+                            className="w-5 h-5 text-blue-500 rounded focus:ring-blue-500"
                           />
                           <span className="font-medium text-white">
                             {category.replace('_', ' ')}
                           </span>
                         </div>
                         <div>
-                          <label className="block text-xs text-white/70 mb-1">DKU %</label>
+                          <label className="block text-xs text-slate-400 mb-1">DKU %</label>
                           <input
                             type="number"
                             min="0"
@@ -462,11 +462,11 @@ export default function Resorts() {
                             disabled={!profitSharingData[category].enabled}
                             value={profitSharingData[category].dku}
                             onChange={(e) => handleProfitSharingChange(category, 'dku', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-white/70 mb-1">Resort %</label>
+                          <label className="block text-xs text-slate-400 mb-1">Resort %</label>
                           <input
                             type="number"
                             min="0"
@@ -475,10 +475,10 @@ export default function Resorts() {
                             disabled={!profitSharingData[category].enabled}
                             value={profitSharingData[category].resort}
                             onChange={(e) => handleProfitSharingChange(category, 'resort', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                           />
                         </div>
-                        <div className="text-xs text-white/60">
+                        <div className="text-xs text-slate-400">
                           {profitSharingData[category].enabled ? '✓ Active' : '✗ Disabled'}
                         </div>
                       </div>
@@ -499,7 +499,7 @@ export default function Resorts() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:shadow-lg transition-all"
                   >
                     Create Resort
                   </button>
@@ -512,7 +512,7 @@ export default function Resorts() {
         {/* Edit Resort Modal */}
         {showEditModal && selectedResort && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30">
+            <div className="bg-navy-900 rounded-2xl p-8 max-w-md w-full border border-navy-600/50">
               <h2 className="text-2xl font-bold text-white mb-6">Edit Resort</h2>
               <form onSubmit={handleUpdate} className="space-y-4">
                 <div>
@@ -524,7 +524,7 @@ export default function Resorts() {
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -535,7 +535,7 @@ export default function Resorts() {
                     type="text"
                     value={formData.legal_company_name}
                     onChange={(e) => setFormData({ ...formData, legal_company_name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., PT. Anugerah Nusantara"
                   />
                 </div>
@@ -546,7 +546,7 @@ export default function Resorts() {
                   <textarea
                     value={formData.company_address}
                     onChange={(e) => setFormData({ ...formData, company_address: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., Waterfront Batam, Batam, Indonesia"
                     rows={2}
                   />
@@ -559,7 +559,7 @@ export default function Resorts() {
                     type="text"
                     value={formData.contact_name}
                     onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -570,7 +570,7 @@ export default function Resorts() {
                     type="email"
                     value={formData.contact_email}
                     onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -581,7 +581,7 @@ export default function Resorts() {
                     type="tel"
                     value={formData.contact_phone}
                     onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div className="flex gap-3 mt-6">
@@ -598,7 +598,7 @@ export default function Resorts() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:shadow-lg transition-all"
                   >
                     Update
                   </button>
@@ -611,16 +611,16 @@ export default function Resorts() {
         {/* Profit Sharing Modal */}
         {showProfitSharingModal && selectedResort && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-2xl w-full border border-purple-500/30 max-h-[90vh] overflow-y-auto">
+            <div className="bg-navy-900 rounded-2xl p-8 max-w-2xl w-full border border-navy-600/50 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-white mb-6">
                 Profit Sharing - {selectedResort.name}
               </h2>
               
               <div className="space-y-4 mb-6">
                 <h3 className="text-lg font-semibold text-white">Configure Profit Sharing per Asset Category</h3>
-                <div className="bg-purple-900/30 rounded-lg p-4 space-y-3 border border-purple-500/20">
+                <div className="bg-navy-900 rounded-lg p-4 space-y-3 border border-navy-700/50">
                   {(['ATV', 'UTV', 'SEA_SPORT', 'POOL_TOYS', 'LINE_SPORT'] as AssetCategory[]).map((category) => (
-                    <div key={category} className={`grid grid-cols-4 gap-4 items-center p-3 rounded-lg transition-all ${profitSharingData[category].enabled ? 'bg-purple-800/30' : 'bg-gray-800/20 opacity-60'}`}>
+                    <div key={category} className={`grid grid-cols-4 gap-4 items-center p-3 rounded-lg transition-all ${profitSharingData[category].enabled ? 'bg-navy-800' : 'bg-gray-800/20 opacity-60'}`}>
                       <div className="flex items-center gap-3">
                         <input
                           type="checkbox"
@@ -629,14 +629,14 @@ export default function Resorts() {
                             ...profitSharingData,
                             [category]: { ...profitSharingData[category], enabled: e.target.checked }
                           })}
-                          className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
+                          className="w-5 h-5 text-blue-500 rounded focus:ring-blue-500"
                         />
                         <span className="font-medium text-white">
                           {category.replace('_', ' ')}
                         </span>
                       </div>
                       <div>
-                        <label className="block text-xs text-white/70 mb-1">DKU %</label>
+                        <label className="block text-xs text-slate-400 mb-1">DKU %</label>
                         <input
                           type="number"
                           min="0"
@@ -645,11 +645,11 @@ export default function Resorts() {
                           disabled={!profitSharingData[category].enabled}
                           value={profitSharingData[category].dku}
                           onChange={(e) => handleProfitSharingChange(category, 'dku', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-white/70 mb-1">Resort %</label>
+                        <label className="block text-xs text-slate-400 mb-1">Resort %</label>
                         <input
                           type="number"
                           min="0"
@@ -658,10 +658,10 @@ export default function Resorts() {
                           disabled={!profitSharingData[category].enabled}
                           value={profitSharingData[category].resort}
                           onChange={(e) => handleProfitSharingChange(category, 'resort', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </div>
-                      <div className="text-xs text-white/60">
+                      <div className="text-xs text-slate-400">
                         {profitSharingData[category].enabled ? '✓ Active' : '✗ Disabled'}
                       </div>
                     </div>
@@ -672,9 +672,9 @@ export default function Resorts() {
                 {profitSharingConfigs.length > 0 && (
                   <div className="mt-6">
                     <h4 className="text-sm font-semibold text-white mb-2">Current Active Categories:</h4>
-                    <div className="bg-purple-800/30 rounded-lg p-3 text-xs space-y-1 border border-purple-500/20">
+                    <div className="bg-navy-800 rounded-lg p-3 text-xs space-y-1 border border-navy-700/50">
                       {profitSharingConfigs.map((config) => (
-                        <div key={config.id} className="flex justify-between text-white/80">
+                        <div key={config.id} className="flex justify-between text-slate-300">
                           <span className="font-medium text-white">{config.asset_category.replace('_', ' ')}:</span>
                           <span>DKU {config.dku_percentage}% / Resort {config.resort_percentage}%</span>
                         </div>

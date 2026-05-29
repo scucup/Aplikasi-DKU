@@ -134,3 +134,39 @@ export const calculatePercentage = (value: number, total: number): number => {
 export const formatPercentage = (value: number, decimals: number = 2): string => {
   return `${value.toFixed(decimals)}%`;
 };
+
+/**
+ * Fetch all records from a Supabase table with pagination
+ * Bypasses the 1000 record limit by fetching in pages
+ * 
+ * @param query - A Supabase query builder (already has .from().select() applied)
+ * @param pageSize - Number of records per page (default 1000)
+ * @returns All records from the query
+ */
+export const fetchAllPaginated = async <T = any>(
+  query: any,
+  pageSize: number = 1000
+): Promise<T[]> => {
+  let allRecords: T[] = [];
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await query.range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error('Error in paginated fetch:', error);
+      throw error;
+    }
+
+    if (data && data.length > 0) {
+      allRecords = [...allRecords, ...data];
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allRecords;
+};

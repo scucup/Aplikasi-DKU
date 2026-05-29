@@ -12,8 +12,8 @@ interface RevenueChartProps {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-gray-900 border-2 border-purple-400 rounded-xl p-4 shadow-2xl">
-        <p className="text-purple-300 font-semibold text-sm mb-2">{label}</p>
+      <div className="bg-gray-900 border border-navy-600 rounded-xl p-4 shadow-2xl">
+        <p className="text-blue-300 font-semibold text-sm mb-2">{label}</p>
         {payload.map((entry: any, index: number) => (
           <div key={index} className="flex items-center gap-2 mb-1">
             <div 
@@ -34,7 +34,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function RevenueChart({ data }: RevenueChartProps) {
   return (
-    <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
+    <div className="bg-navy-900 rounded-xl p-6 shadow-lg border border-navy-700/50">
       <div className="mb-6">
         <h3 className="text-xl font-bold text-white">Revenue Distribution</h3>
       </div>

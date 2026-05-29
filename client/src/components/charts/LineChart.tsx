@@ -27,7 +27,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function LineChart({ data, title, color, highlightPeriod }: LineChartProps) {
   return (
-    <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
+    <div className="bg-navy-900 rounded-xl p-6 shadow-lg border border-navy-700/50">
       <div className="mb-6">
         <h3 className="text-xl font-bold text-white">{title}</h3>
       </div>

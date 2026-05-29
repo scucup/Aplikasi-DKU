@@ -38,7 +38,7 @@ export default function CircularProgress({ value, max, label, color, size = 120 
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-2xl font-bold text-white">{value}</span>
-          <span className="text-xs text-white/60">{label}</span>
+          <span className="text-xs text-slate-400">{label}</span>
         </div>
       </div>
     </div>

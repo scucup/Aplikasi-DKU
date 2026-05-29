@@ -4,12 +4,13 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  background-color: #152238;
 }
 
 code {
@@ -17,21 +18,43 @@ code {
     monospace;
 }
 
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f1a2e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2e4a65;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b5998;
+}
+
+/* Select option styling */
+select option {
+  background-color: #152238;
+  color: white;
+}
+
 /* Mobile-specific improvements */
 @media (max-width: 768px) {
-  /* Prevent horizontal scroll */
   html, body {
     overflow-x: hidden;
     width: 100%;
   }
   
-  /* Better touch targets */
   button, a {
     min-height: 44px;
     min-width: 44px;
   }
   
-  /* Improve table scrolling */
   .overflow-x-auto {
     -webkit-overflow-scrolling: touch;
   }

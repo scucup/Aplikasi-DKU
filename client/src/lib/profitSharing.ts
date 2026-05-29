@@ -145,7 +145,7 @@ export async function fetchAllRevenueRecords(supabase: any): Promise<any[]> {
   while (hasMore) {
     const { data: pageData, error: pageError } = await supabase
       .from('revenue_records')
-      .select('*, resort:resorts(name)')
+      .select('id, resort_id, asset_category, date, amount, discount, tax_service, billing_no, discount_percentage, discount_type, tax_service_percentage, recorded_by, created_at, resort:resorts(name)')
       .order('date', { ascending: false })
       .order('id', { ascending: true })
       .range(from, from + pageSize - 1);

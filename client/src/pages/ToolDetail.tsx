@@ -6,6 +6,7 @@ import { ArrowLeft, Wrench, Calendar, DollarSign, User, AlertCircle, Edit2 } fro
 import Layout from '../components/Layout';
 import AddMaintenanceModal from '../components/AddMaintenanceModal';
 import EditToolModal from '../components/EditToolModal';
+import { formatCurrency, formatDateLong } from '../lib/utils';
 
 export default function ToolDetail() {
   const { id } = useParams<{ id: string }>();
@@ -29,7 +30,7 @@ export default function ToolDetail() {
     // Fetch tool
     const { data: toolData, error: toolError } = await supabase
       .from('tools')
-      .select('id, name, category, resort_id, status, purchase_date, purchase_price, current_value, notes')
+      .select('id, name, category, brand, model, serial_number, resort_id, condition, purchase_date, purchase_price, supplier, warranty_until, last_maintenance_date, notes, image_url, expense_id, created_at, updated_at')
       .eq('id', id)
       .single();
 
@@ -55,7 +56,7 @@ export default function ToolDetail() {
     // Fetch maintenance history
     const { data: maintenanceData } = await supabase
       .from('tool_maintenance_history')
-      .select('id, tool_id, maintenance_date, description, cost, performed_by')
+      .select('id, tool_id, maintenance_date, maintenance_type, description, cost, performed_by, created_at')
       .eq('tool_id', id)
       .order('maintenance_date', { ascending: false });
 
@@ -64,21 +65,7 @@ export default function ToolDetail() {
     setLoading(false);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
+  const formatDate = formatDateLong;
 
   const getConditionColor = (condition: string) => {
     const colors = {
@@ -116,7 +103,7 @@ export default function ToolDetail() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
         </div>
       </Layout>
     );
@@ -126,12 +113,12 @@ export default function ToolDetail() {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center bg-dark-purple-900/50 backdrop-blur-md rounded-xl p-12 border border-purple-500/20">
-            <AlertCircle className="mx-auto h-12 w-12 text-white/40" />
+          <div className="text-center bg-navy-900 rounded-xl p-12 border border-navy-700/50">
+            <AlertCircle className="mx-auto h-12 w-12 text-slate-500" />
             <h3 className="mt-2 text-sm font-medium text-white">Tool not found</h3>
             <button
               onClick={() => navigate('/tools')}
-              className="mt-4 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all"
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
             >
               Back to Tools
             </button>
@@ -148,7 +135,7 @@ export default function ToolDetail() {
         <div className="mb-6">
           <button
             onClick={() => navigate('/tools')}
-            className="flex items-center text-purple-400 hover:text-purple-300 mb-4"
+            className="flex items-center text-blue-400 hover:text-blue-300 mb-4"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
             Back to Tools
@@ -156,14 +143,14 @@ export default function ToolDetail() {
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold text-white">{tool.name}</h1>
-              <p className="text-white/70 mt-1">
+              <p className="text-slate-400 mt-1">
                 {tool.brand && `${tool.brand} `}
                 {tool.model && `- ${tool.model}`}
               </p>
             </div>
             <button 
               onClick={() => setShowEditModal(true)}
-              className="flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg"
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg"
             >
               <Edit2 className="w-4 h-4 mr-2" />
               Edit Tool
@@ -175,48 +162,48 @@ export default function ToolDetail() {
           {/* Main Info */}
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Information */}
-            <div className="bg-dark-purple-900/50 backdrop-blur-md rounded-xl shadow-lg p-6 border border-purple-500/20">
+            <div className="bg-navy-900 rounded-xl shadow-lg p-6 border border-navy-700/50">
               <h2 className="text-xl font-bold text-white mb-4">Basic Information</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-white/70">Category</p>
+                  <p className="text-sm text-slate-400">Category</p>
                   <p className="text-base font-medium text-white">{tool.category}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-white/70">Condition</p>
+                  <p className="text-sm text-slate-400">Condition</p>
                   <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getConditionColor(tool.condition)}`}>
                     {getConditionLabel(tool.condition)}
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm text-white/70">Serial Number</p>
+                  <p className="text-sm text-slate-400">Serial Number</p>
                   <p className="text-base font-medium text-white">{tool.serial_number || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-white/70">Resort</p>
+                  <p className="text-sm text-slate-400">Resort</p>
                   <p className="text-base font-medium text-white">{resort?.name || tool.resort_id}</p>
                 </div>
               </div>
             </div>
 
             {/* Purchase Information */}
-            <div className="bg-dark-purple-900/50 backdrop-blur-md rounded-xl shadow-lg p-6 border border-purple-500/20">
+            <div className="bg-navy-900 rounded-xl shadow-lg p-6 border border-navy-700/50">
               <h2 className="text-xl font-bold text-white mb-4">Purchase Information</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-white/70">Purchase Date</p>
+                  <p className="text-sm text-slate-400">Purchase Date</p>
                   <p className="text-base font-medium text-white">{formatDate(tool.purchase_date)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-white/70">Purchase Price</p>
+                  <p className="text-sm text-slate-400">Purchase Price</p>
                   <p className="text-base font-medium text-white">{formatCurrency(tool.purchase_price)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-white/70">Supplier</p>
+                  <p className="text-sm text-slate-400">Supplier</p>
                   <p className="text-base font-medium text-white">{tool.supplier || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-white/70">Warranty Until</p>
+                  <p className="text-sm text-slate-400">Warranty Until</p>
                   <p className="text-base font-medium text-white">
                     {tool.warranty_until ? formatDate(tool.warranty_until) : '-'}
                   </p>
@@ -225,12 +212,12 @@ export default function ToolDetail() {
             </div>
 
             {/* Maintenance History */}
-            <div className="bg-dark-purple-900/50 backdrop-blur-md rounded-xl shadow-lg p-6 border border-purple-500/20">
+            <div className="bg-navy-900 rounded-xl shadow-lg p-6 border border-navy-700/50">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-white">Maintenance History</h2>
                 <button 
                   onClick={() => setShowMaintenanceModal(true)}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all text-sm shadow-lg"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all text-sm shadow-lg"
                 >
                   + Add Maintenance
                 </button>
@@ -238,19 +225,19 @@ export default function ToolDetail() {
               
               {maintenanceHistory.length === 0 ? (
                 <div className="text-center py-8">
-                  <Wrench className="mx-auto h-12 w-12 text-white/40" />
-                  <p className="mt-2 text-sm text-white/60">No maintenance history yet</p>
+                  <Wrench className="mx-auto h-12 w-12 text-slate-500" />
+                  <p className="mt-2 text-sm text-slate-400">No maintenance history yet</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {maintenanceHistory.map((maintenance) => (
-                    <div key={maintenance.id} className="border border-purple-500/30 rounded-lg p-4 bg-dark-purple-800/30">
+                    <div key={maintenance.id} className="border border-navy-600/50 rounded-lg p-4 bg-navy-800/50">
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <span className="inline-block px-2 py-1 bg-blue-500/20 text-blue-400 text-xs font-medium rounded border border-blue-500/30">
                             {getMaintenanceTypeLabel(maintenance.maintenance_type)}
                           </span>
-                          <p className="text-sm text-white/70 mt-1">
+                          <p className="text-sm text-slate-400 mt-1">
                             <Calendar className="inline w-4 h-4 mr-1" />
                             {formatDate(maintenance.maintenance_date)}
                           </p>
@@ -263,10 +250,10 @@ export default function ToolDetail() {
                         )}
                       </div>
                       {maintenance.description && (
-                        <p className="text-sm text-white/80 mt-2">{maintenance.description}</p>
+                        <p className="text-sm text-slate-300 mt-2">{maintenance.description}</p>
                       )}
                       {maintenance.performed_by && (
-                        <p className="text-xs text-white/50 mt-2">
+                        <p className="text-xs text-slate-500 mt-2">
                           <User className="inline w-3 h-3 mr-1" />
                           Performed by: {maintenance.performed_by}
                         </p>
@@ -282,30 +269,30 @@ export default function ToolDetail() {
           <div className="space-y-6">
             {/* Notes */}
             {tool.notes && (
-              <div className="bg-dark-purple-900/50 backdrop-blur-md rounded-xl shadow-lg p-6 border border-purple-500/20">
+              <div className="bg-navy-900 rounded-xl shadow-lg p-6 border border-navy-700/50">
                 <h3 className="text-lg font-bold text-white mb-2">Notes</h3>
-                <p className="text-sm text-white/80">{tool.notes}</p>
+                <p className="text-sm text-slate-300">{tool.notes}</p>
               </div>
             )}
 
             {/* Last Maintenance */}
             {tool.last_maintenance_date && (
-              <div className="bg-dark-purple-900/50 backdrop-blur-md rounded-xl shadow-lg p-6 border border-purple-500/20">
+              <div className="bg-navy-900 rounded-xl shadow-lg p-6 border border-navy-700/50">
                 <h3 className="text-lg font-bold text-white mb-2">Last Maintenance</h3>
-                <p className="text-sm text-white/80">{formatDate(tool.last_maintenance_date)}</p>
+                <p className="text-sm text-slate-300">{formatDate(tool.last_maintenance_date)}</p>
               </div>
             )}
 
             {/* Stats */}
-            <div className="bg-dark-purple-900/50 backdrop-blur-md rounded-xl shadow-lg p-6 border border-purple-500/20">
+            <div className="bg-navy-900 rounded-xl shadow-lg p-6 border border-navy-700/50">
               <h3 className="text-lg font-bold text-white mb-4">Statistics</h3>
               <div className="space-y-3">
                 <div>
-                  <p className="text-sm text-white/70">Total Maintenance</p>
+                  <p className="text-sm text-slate-400">Total Maintenance</p>
                   <p className="text-2xl font-bold text-white">{maintenanceHistory.length}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-white/70">Total Maintenance Cost</p>
+                  <p className="text-sm text-slate-400">Total Maintenance Cost</p>
                   <p className="text-2xl font-bold text-white">
                     {formatCurrency(maintenanceHistory.reduce((sum, m) => sum + (m.cost || 0), 0))}
                   </p>

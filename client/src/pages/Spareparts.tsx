@@ -216,151 +216,134 @@ export default function Spareparts() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 md:py-6 lg:py-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-white">Sparepart Inventory</h1>
-          <p className="text-white/60 text-sm">
-            Stock is updated automatically when expenses are approved
-          </p>
-        </div>
-
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-purple-900/30 backdrop-blur-sm rounded-xl p-4 border border-purple-500/30">
-            <div className="text-sm text-purple-200 font-medium mb-1">Total Items</div>
-            <div className="text-2xl font-bold text-white">{totalItems}</div>
-          </div>
-          <div className="bg-red-900/30 backdrop-blur-sm rounded-xl p-4 border border-red-500/30">
-            <div className="text-sm text-red-200 font-medium mb-1">Out of Stock</div>
-            <div className="text-2xl font-bold text-white">{outOfStock}</div>
-          </div>
-          <div className="bg-yellow-900/30 backdrop-blur-sm rounded-xl p-4 border border-yellow-500/30">
-            <div className="text-sm text-yellow-200 font-medium mb-1">Low Stock</div>
-            <div className="text-2xl font-bold text-white">{lowStock}</div>
-          </div>
-          <div className="bg-green-900/30 backdrop-blur-sm rounded-xl p-4 border border-green-500/30">
-            <div className="text-sm text-green-200 font-medium mb-1">Total Value</div>
-            <div className="text-xl font-bold text-white">Rp {totalValue.toLocaleString('id-ID')}</div>
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-white">Spareparts</h1>
+            <p className="text-xs text-slate-400">Stock updated automatically when expenses are approved</p>
           </div>
         </div>
 
-        {/* Filters - same style as Assets page */}
-        <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-purple-500/20 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <svg
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search spareparts..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-            
-            <select
-              value={selectedResort}
-              onChange={(e) => setSelectedResort(e.target.value)}
-              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              <option value="ALL" className="bg-slate-800">All Resorts</option>
-              {[...new Set(inventory.map(item => item.resort_id))].map(resortId => {
-                const resort = inventory.find(item => item.resort_id === resortId);
-                return (
-                  <option key={resortId} value={resortId} className="bg-slate-800">
-                    {resort?.resort_name || 'Unknown'}
-                  </option>
-                );
-              })}
-            </select>
-            
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              {assetCategories.map((cat) => (
-                <option key={cat.value} value={cat.value} className="bg-slate-800">
-                  {cat.label}
-                </option>
-              ))}
-            </select>
+        {/* Stats Cards - Compact */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+            <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Total Items</div>
+            <div className="text-2xl font-bold text-white mt-1">{totalItems}</div>
+          </div>
+          <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+            <div className="text-xs text-red-400 font-medium uppercase tracking-wider">Out of Stock</div>
+            <div className="text-2xl font-bold text-white mt-1">{outOfStock}</div>
+          </div>
+          <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+            <div className="text-xs text-amber-400 font-medium uppercase tracking-wider">Low Stock</div>
+            <div className="text-2xl font-bold text-white mt-1">{lowStock}</div>
+          </div>
+          <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+            <div className="text-xs text-green-400 font-medium uppercase tracking-wider">Total Value</div>
+            <div className="text-lg font-bold text-white mt-1 whitespace-nowrap">Rp{'\u00A0'}{totalValue.toLocaleString('id-ID')}</div>
           </div>
         </div>
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-4 border-navy-600 border-t-blue-500"></div>
           </div>
         ) : (
-          <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
+          <div className="bg-navy-900 rounded-xl border border-navy-700/50 overflow-hidden">
+            {/* Compact Filters */}
+            <div className="p-4 border-b border-navy-700/50">
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative flex-1 min-w-[180px] max-w-[240px]">
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <select
+                  value={selectedResort}
+                  onChange={(e) => setSelectedResort(e.target.value)}
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="ALL">All Resorts</option>
+                  {[...new Set(inventory.map(item => item.resort_id))].map(resortId => {
+                    const resort = inventory.find(item => item.resort_id === resortId);
+                    return (
+                      <option key={resortId} value={resortId}>{resort?.resort_name || 'Unknown'}</option>
+                    );
+                  })}
+                </select>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
+                >
+                  {assetCategories.map((cat) => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-purple-500/20">
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Sparepart Name</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Category</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Resort</th>
-                    <th className="text-center py-3 px-4 text-white/90 font-semibold">Stock</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Unit</th>
-                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Last Price</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Last Supplier</th>
-                    <th className="text-center py-3 px-4 text-white/90 font-semibold">Status</th>
-                    {isManager && <th className="text-center py-3 px-4 text-white/90 font-semibold">Actions</th>}
+                  <tr className="border-b border-navy-700/50 bg-navy-800/50">
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Name</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Category</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Resort</th>
+                    <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Stock</th>
+                    <th className="text-right py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">Unit Price</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Supplier</th>
+                    <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Status</th>
+                    {isManager && <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Actions</th>}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-navy-700/30">
                   {filteredInventory.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors"
-                    >
-                      <td className="py-3 px-4 text-white font-medium">{item.sparepart_name}</td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-1 bg-purple-500/20 text-purple-200 rounded text-xs">
+                    <tr key={item.id} className="hover:bg-navy-800/50 transition-colors">
+                      <td className="py-2.5 px-3 text-white text-xs font-medium">{item.sparepart_name}</td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 rounded text-[10px] font-medium">
                           {item.asset_category.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-white/70">{item.resort_name}</td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-white font-bold text-lg">{item.current_stock}</span>
+                      <td className="py-2.5 px-3 text-slate-400 text-xs max-w-[100px] truncate">{item.resort_name}</td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="text-white font-bold text-sm">{item.current_stock}</span>
+                        <span className="text-slate-500 text-[10px] ml-1">{item.unit}</span>
                       </td>
-                      <td className="py-3 px-4 text-white/70">{item.unit}</td>
-                      <td className="py-3 px-4 text-right text-white/70">
-                        Rp {item.last_unit_price.toLocaleString('id-ID')}
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        <span className="text-slate-300 text-xs">Rp{'\u00A0'}{item.last_unit_price.toLocaleString('id-ID')}</span>
                       </td>
-                      <td className="py-3 px-4 text-white/70">{item.last_supplier || '-'}</td>
-                      <td className="py-3 px-4 text-center">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStockStatusColor(item.current_stock)}`}>
+                      <td className="py-2.5 px-3 text-slate-400 text-xs max-w-[100px] truncate">{item.last_supplier || '-'}</td>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${getStockStatusColor(item.current_stock)}`}>
                           {getStockStatusLabel(item.current_stock)}
                         </span>
                       </td>
                       {isManager && (
-                        <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => handleEdit(item)}
-                              className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
+                              className="w-7 h-7 flex items-center justify-center bg-blue-600/20 text-blue-400 rounded hover:bg-blue-600/40 transition-colors"
+                              title="Edit"
                             >
-                              Edit
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             </button>
                             <button
                               onClick={() => handleDelete(item)}
-                              className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium"
+                              className="w-7 h-7 flex items-center justify-center bg-red-600/20 text-red-400 rounded hover:bg-red-600/40 transition-colors"
+                              title="Delete"
                             >
-                              Delete
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </div>
                         </td>
@@ -369,14 +352,8 @@ export default function Spareparts() {
                   ))}
                   {filteredInventory.length === 0 && (
                     <tr>
-                      <td colSpan={isManager ? 9 : 8} className="py-12 text-center text-white/50">
-                        <div className="flex flex-col items-center gap-2">
-                          <span className="text-4xl">📦</span>
-                          <p>No inventory data available</p>
-                          <p className="text-sm">
-                            Stock will appear here after sparepart expenses are approved
-                          </p>
-                        </div>
+                      <td colSpan={isManager ? 8 : 7} className="py-12 text-center text-slate-500 text-sm">
+                        No inventory data available
                       </td>
                     </tr>
                   )}
@@ -389,7 +366,7 @@ export default function Spareparts() {
         {/* Edit Modal */}
         {showEditModal && editingItem && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30">
+            <div className="bg-navy-900 rounded-2xl p-8 max-w-md w-full border border-navy-600/50">
               <h2 className="text-2xl font-bold text-white mb-6">Edit Sparepart</h2>
               <form onSubmit={handleUpdate} className="space-y-4">
                 <div>
@@ -399,7 +376,7 @@ export default function Spareparts() {
                     required
                     value={editFormData.sparepart_name}
                     onChange={(e) => setEditFormData({ ...editFormData, sparepart_name: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -411,7 +388,7 @@ export default function Spareparts() {
                       min="0"
                       value={editFormData.current_stock}
                       onChange={(e) => setEditFormData({ ...editFormData, current_stock: parseInt(e.target.value) || 0 })}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                      className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -419,7 +396,7 @@ export default function Spareparts() {
                     <select
                       value={editFormData.unit}
                       onChange={(e) => setEditFormData({ ...editFormData, unit: e.target.value })}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                      className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="pcs" className="bg-slate-800">pcs</option>
                       <option value="liter" className="bg-slate-800">liter</option>
@@ -437,7 +414,7 @@ export default function Spareparts() {
                     min="0"
                     value={editFormData.last_unit_price}
                     onChange={(e) => setEditFormData({ ...editFormData, last_unit_price: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -446,7 +423,7 @@ export default function Spareparts() {
                     type="text"
                     value={editFormData.last_supplier}
                     onChange={(e) => setEditFormData({ ...editFormData, last_supplier: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="flex gap-3 mt-6">
@@ -456,13 +433,13 @@ export default function Spareparts() {
                       setShowEditModal(false);
                       setEditingItem(null);
                     }}
-                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
+                    className="flex-1 px-4 py-2 bg-navy-800 text-white rounded-lg hover:bg-navy-700 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors font-semibold"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
                   >
                     Update
                   </button>

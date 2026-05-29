@@ -425,13 +425,17 @@ export default function Maintenance() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto p-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white">Maintenance Records</h1>
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-white">Maintenance</h1>
+            <p className="text-xs text-slate-400">Track all maintenance records</p>
+          </div>
           {canCreate && (
             <button
               onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium"
             >
               + Add Maintenance
             </button>
@@ -439,8 +443,8 @@ export default function Maintenance() {
         </div>
 
         {!canCreate && (
-          <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
-            <p className="text-sm text-yellow-200">
+          <div className="p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+            <p className="text-xs text-yellow-300">
               You don't have permission to create maintenance records. Only ENGINEER and MANAGER can create.
             </p>
           </div>
@@ -448,180 +452,146 @@ export default function Maintenance() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-4 border-navy-600 border-t-blue-500"></div>
           </div>
         ) : (
-          <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
-            {/* Filters - same style as Assets page */}
-            <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-purple-500/20 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="relative">
-                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-navy-900 rounded-xl border border-navy-700/50 overflow-hidden">
+            {/* Compact Filters */}
+            <div className="p-4 border-b border-navy-700/50">
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative flex-1 min-w-[180px] max-w-[240px]">
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
                     type="text"
-                    placeholder="Search maintenance..."
+                    placeholder="Search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full pl-9 pr-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
-                
                 <select
                   value={selectedResort}
                   onChange={(e) => setSelectedResort(e.target.value)}
-                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="all">All Resorts</option>
                   {resorts.map(resort => (
                     <option key={resort.id} value={resort.id}>{resort.name}</option>
                   ))}
                 </select>
-                
                 <select
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value)}
-                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="all">All Types</option>
                   <option value="PREVENTIVE">Preventive</option>
                   <option value="CORRECTIVE">Corrective</option>
                 </select>
-                
                 <input
                   type="date"
-                  placeholder="Start Date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
                 />
-                
                 <input
                   type="date"
-                  placeholder="End Date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-purple-500/20">
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Type</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Asset</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Description</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Start Date</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">End Date</th>
-                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Sparepart Cost</th>
-                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Total Cost</th>
-                    {isManager && <th className="text-center py-3 px-4 text-white/90 font-semibold">Actions</th>}
+                  <tr className="border-b border-navy-700/50 bg-navy-800/50">
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Type</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Asset</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Description</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">Start Date</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">End Date</th>
+                    <th className="text-right py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">Sparepart</th>
+                    <th className="text-right py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">Total Cost</th>
+                    {isManager && <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Actions</th>}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-navy-700/30">
                   {records
                     .filter((record) => {
                       const assetName = (record as any).asset?.name || '';
                       const description = record.description || '';
                       const search = searchTerm.toLowerCase();
-                      const matchesSearch = assetName.toLowerCase().includes(search) || 
-                                          description.toLowerCase().includes(search);
-                      
-                      // Resort filtering
+                      const matchesSearch = assetName.toLowerCase().includes(search) || description.toLowerCase().includes(search);
                       const assetResortId = (record as any).asset?.resort_id;
                       const matchesResort = selectedResort === 'all' || assetResortId === selectedResort;
-                      
-                      // Type filtering
                       const matchesType = selectedType === 'all' || record.type === selectedType;
-                      
-                      // Date filtering
                       let matchesDate = true;
                       if (startDate || endDate) {
                         const recordDate = new Date(record.start_date);
-                        if (startDate) {
-                          matchesDate = matchesDate && recordDate >= new Date(startDate);
-                        }
-                        if (endDate) {
-                          matchesDate = matchesDate && recordDate <= new Date(endDate);
-                        }
+                        if (startDate) matchesDate = matchesDate && recordDate >= new Date(startDate);
+                        if (endDate) matchesDate = matchesDate && recordDate <= new Date(endDate);
                       }
-                      
                       return matchesSearch && matchesResort && matchesType && matchesDate;
                     })
                     .map((record) => (
-                    <tr key={record.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
-                      <td className="py-3 px-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            record.type === 'PREVENTIVE'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
+                    <tr key={record.id} className="hover:bg-navy-800/50 transition-colors">
+                      <td className="py-2.5 px-3">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                          record.type === 'PREVENTIVE' ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'
+                        }`}>
                           {record.type}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-2.5 px-3">
                         <div className="flex items-center gap-2">
                           {(record as any).asset?.photo_url && (
-                            <img
-                              src={(record as any).asset.photo_url}
-                              alt={(record as any).asset?.name}
-                              className="w-10 h-10 object-cover rounded-lg"
-                            />
+                            <img src={(record as any).asset.photo_url} alt="" className="w-7 h-7 object-cover rounded" />
                           )}
                           <div>
-                            <p className="text-white font-medium">{(record as any).asset?.name || '-'}</p>
+                            <p className="text-white text-xs font-medium">{(record as any).asset?.name || '-'}</p>
                             {record.asset_serial_number && (
-                              <p className="text-white/50 text-xs font-mono">
-                                {record.asset_serial_number}
-                              </p>
+                              <p className="text-slate-500 text-[10px] font-mono">{record.asset_serial_number}</p>
                             )}
                           </div>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-white/70 max-w-xs truncate" title={record.description}>
+                      <td className="py-2.5 px-3 text-slate-400 text-xs max-w-[150px] truncate" title={record.description}>
                         {record.description}
                       </td>
-                      <td className="py-3 px-4 text-white/70 text-sm">
-                        {new Date(record.start_date).toLocaleString('id-ID', {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        })}
+                      <td className="py-2.5 px-3 text-slate-300 text-xs whitespace-nowrap">
+                        {new Date(record.start_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
-                      <td className="py-3 px-4 text-white/70 text-sm">
+                      <td className="py-2.5 px-3 text-xs whitespace-nowrap">
                         {record.end_date
-                          ? new Date(record.end_date).toLocaleString('id-ID', {
-                              dateStyle: 'short',
-                              timeStyle: 'short',
-                            })
-                          : <span className="text-yellow-400">Ongoing</span>}
+                          ? <span className="text-slate-300">{new Date(record.end_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          : <span className="text-amber-400 font-medium">Ongoing</span>}
                       </td>
-                      <td className="py-3 px-4 text-right text-white/70">
-                        Rp {record.sparepart_cost.toLocaleString('id-ID')}
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        <span className="text-slate-400 text-xs">Rp{'\u00A0'}{record.sparepart_cost.toLocaleString('id-ID')}</span>
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="text-white font-bold">
-                          Rp {(record.labor_cost + record.sparepart_cost).toLocaleString('id-ID')}
-                        </span>
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        <span className="text-white font-semibold text-xs">Rp{'\u00A0'}{(record.labor_cost + record.sparepart_cost).toLocaleString('id-ID')}</span>
                       </td>
                       {isManager && (
-                        <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => handleEditMaintenance(record)}
-                              className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
+                              className="w-7 h-7 flex items-center justify-center bg-blue-600/20 text-blue-400 rounded hover:bg-blue-600/40 transition-colors"
+                              title="Edit"
                             >
-                              Edit
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             </button>
                             <button
                               onClick={() => handleDeleteMaintenance(record)}
-                              className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium"
+                              className="w-7 h-7 flex items-center justify-center bg-red-600/20 text-red-400 rounded hover:bg-red-600/40 transition-colors"
+                              title="Delete"
                             >
-                              Delete
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </div>
                         </td>
@@ -632,31 +602,23 @@ export default function Maintenance() {
                     const assetName = (record as any).asset?.name || '';
                     const description = record.description || '';
                     const search = searchTerm.toLowerCase();
-                    const matchesSearch = assetName.toLowerCase().includes(search) || 
-                                        description.toLowerCase().includes(search);
-                    
+                    const matchesSearch = assetName.toLowerCase().includes(search) || description.toLowerCase().includes(search);
                     const assetResortId = (record as any).asset?.resort_id;
                     const matchesResort = selectedResort === 'all' || assetResortId === selectedResort;
                     const matchesType = selectedType === 'all' || record.type === selectedType;
-                    
                     let matchesDate = true;
                     if (startDate || endDate) {
                       const recordDate = new Date(record.start_date);
-                      if (startDate) {
-                        matchesDate = matchesDate && recordDate >= new Date(startDate);
-                      }
-                      if (endDate) {
-                        matchesDate = matchesDate && recordDate <= new Date(endDate);
-                      }
+                      if (startDate) matchesDate = matchesDate && recordDate >= new Date(startDate);
+                      if (endDate) matchesDate = matchesDate && recordDate <= new Date(endDate);
                     }
-                    
                     return matchesSearch && matchesResort && matchesType && matchesDate;
                   }).length === 0 && (
                     <tr>
-                      <td colSpan={isManager ? 8 : 7} className="py-8 text-center text-white/50">
+                      <td colSpan={isManager ? 8 : 7} className="py-12 text-center text-slate-500 text-sm">
                         {searchTerm || selectedResort !== 'all' || selectedType !== 'all' || startDate || endDate 
                           ? 'No maintenance records match your filters' 
-                          : 'No maintenance records available'}
+                          : 'No maintenance records yet'}
                       </td>
                     </tr>
                   )}
@@ -672,7 +634,7 @@ export default function Maintenance() {
             {records.map((record) => (
               <div
                 key={record.id}
-                className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 hover:border-purple-500/50 transition-all"
+                className="bg-navy-900 rounded-2xl p-6 border border-navy-700/50 hover:border-navy-600 transition-all"
               >
                 <div className="flex gap-4">
                   {/* Asset Photo */}
@@ -699,7 +661,7 @@ export default function Maintenance() {
                       </span>
                       <h3 className="text-lg font-bold text-white">{record.description}</h3>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-white/70">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-slate-400">
                       <div>
                         <span className="font-medium text-white/90">Asset:</span>{' '}
                         {(record as any).asset?.name || '-'}
@@ -729,7 +691,7 @@ export default function Maintenance() {
                     </div>
                     
                     {/* Cost Breakdown */}
-                    <div className="mt-4 pt-4 border-t border-purple-500/20">
+                    <div className="mt-4 pt-4 border-t border-navy-700/50">
                       <p className="text-sm font-medium text-white/90 mb-2">Cost Breakdown:</p>
                       <div className="grid grid-cols-3 gap-4 text-sm">
                         <div className="bg-blue-50 p-3 rounded-lg">
@@ -778,7 +740,7 @@ export default function Maintenance() {
         {/* Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto border border-purple-500/30">
+            <div className="bg-navy-900 rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto border border-navy-600/50">
               <h2 className="text-2xl font-bold text-white mb-6">Add Maintenance Record</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -820,7 +782,7 @@ export default function Maintenance() {
 
                 {/* Asset Details Preview */}
                 {selectedAsset && (
-                  <div className="p-4 bg-purple-800/30 rounded-lg border border-purple-500/30">
+                  <div className="p-4 bg-navy-800 rounded-lg border border-navy-600/50">
                     <h4 className="text-sm font-medium text-white mb-2">Asset Details</h4>
                     <div className="flex gap-4">
                       {selectedAsset.photo_url && (
@@ -830,7 +792,7 @@ export default function Maintenance() {
                           className="w-20 h-20 object-cover rounded-lg"
                         />
                       )}
-                      <div className="text-sm text-white/80">
+                      <div className="text-sm text-slate-300">
                         <p>
                           <span className="font-medium text-white">Name:</span> {selectedAsset.name}
                         </p>
@@ -864,9 +826,9 @@ export default function Maintenance() {
                   <label className="block text-sm font-medium text-white mb-2">
                     Spareparts Used
                   </label>
-                  <div className="border border-purple-500/30 rounded-lg p-3 max-h-64 overflow-y-auto space-y-2 bg-purple-900/20">
+                  <div className="border border-navy-600/50 rounded-lg p-3 max-h-64 overflow-y-auto space-y-2 bg-navy-900">
                     {spareparts.length === 0 ? (
-                      <p className="text-sm text-white/60">No spareparts available in inventory</p>
+                      <p className="text-sm text-slate-400">No spareparts available in inventory</p>
                     ) : (
                       spareparts.map((sparepart) => {
                         const usage = sparepartUsage.find(u => u.inventory_id === sparepart.id);
@@ -876,7 +838,7 @@ export default function Maintenance() {
                           <div
                             key={sparepart.id}
                             className={`p-3 rounded-lg border transition-all ${
-                              isSelected ? 'bg-orange-500/20 border-orange-400/50' : 'bg-purple-800/30 border-purple-500/30 hover:bg-purple-700/30'
+                              isSelected ? 'bg-orange-500/20 border-orange-400/50' : 'bg-navy-800 border-navy-600/50 hover:bg-blue-700/30'
                             }`}
                           >
                             <div className="flex items-start gap-3">
@@ -894,7 +856,7 @@ export default function Maintenance() {
                               />
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-white">{sparepart.sparepart_name}</p>
-                                <p className="text-xs text-white/60">
+                                <p className="text-xs text-slate-400">
                                   {sparepart.asset_category} - {sparepart.resort_name}
                                 </p>
                                 <div className="flex items-center gap-3 mt-1">
@@ -910,7 +872,7 @@ export default function Maintenance() {
                                 
                                 {isSelected && (
                                   <div className="mt-2 flex items-center gap-2">
-                                    <label className="text-xs text-white/80">Qty:</label>
+                                    <label className="text-xs text-slate-300">Qty:</label>
                                     <input
                                       type="number"
                                       min="1"
@@ -928,7 +890,7 @@ export default function Maintenance() {
                                       }}
                                       className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-orange-500"
                                     />
-                                    <span className="text-xs text-white/70">
+                                    <span className="text-xs text-slate-400">
                                       Total: Rp {((usage?.quantity || 1) * sparepart.last_unit_price).toLocaleString('id-ID')}
                                     </span>
                                   </div>
@@ -1043,12 +1005,12 @@ export default function Maintenance() {
         {/* Edit Maintenance Modal */}
         {showEditModal && editingRecord && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30">
+            <div className="bg-navy-900 rounded-2xl p-8 max-w-md w-full border border-navy-600/50">
               <h2 className="text-2xl font-bold text-white mb-6">Edit Maintenance Record</h2>
               <form onSubmit={handleUpdateMaintenance} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">Asset</label>
-                  <div className="px-4 py-2 bg-white/5 border border-white/10 text-white/70 rounded-lg">
+                  <div className="px-4 py-2 bg-white/5 border border-white/10 text-slate-400 rounded-lg">
                     {editingRecord.asset?.name || 'Unknown Asset'}
                   </div>
                 </div>
@@ -1058,7 +1020,7 @@ export default function Maintenance() {
                     required
                     value={editFormData.type}
                     onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value as MaintenanceType })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="PREVENTIVE" className="bg-slate-800">Preventive</option>
                     <option value="CORRECTIVE" className="bg-slate-800">Corrective</option>
@@ -1071,7 +1033,7 @@ export default function Maintenance() {
                     value={editFormData.description}
                     onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
                     rows={3}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -1082,7 +1044,7 @@ export default function Maintenance() {
                       required
                       value={editFormData.start_date}
                       onChange={(e) => setEditFormData({ ...editFormData, start_date: e.target.value })}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                      className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1092,7 +1054,7 @@ export default function Maintenance() {
                       required
                       value={editFormData.start_time}
                       onChange={(e) => setEditFormData({ ...editFormData, start_time: e.target.value })}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                      className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -1103,7 +1065,7 @@ export default function Maintenance() {
                       type="date"
                       value={editFormData.end_date}
                       onChange={(e) => setEditFormData({ ...editFormData, end_date: e.target.value })}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                      className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -1112,7 +1074,7 @@ export default function Maintenance() {
                       type="time"
                       value={editFormData.end_time}
                       onChange={(e) => setEditFormData({ ...editFormData, end_time: e.target.value })}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+                      className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -1123,13 +1085,13 @@ export default function Maintenance() {
                       setShowEditModal(false);
                       setEditingRecord(null);
                     }}
-                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
+                    className="flex-1 px-4 py-2 bg-navy-800 text-white rounded-lg hover:bg-navy-700 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors font-semibold"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
                   >
                     Update
                   </button>

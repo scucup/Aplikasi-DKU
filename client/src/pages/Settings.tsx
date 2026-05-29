@@ -236,15 +236,15 @@ export default function Settings() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-navy-600/50 border-t-blue-500"></div>
           </div>
         ) : (
           <>
-            <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
+            <div className="bg-navy-900 rounded-2xl p-6 border border-navy-700/50">
               <h2 className="text-xl font-bold text-white mb-4">Company Logo</h2>
             
             <div className="mb-6">
-              <p className="text-sm text-white/70 mb-4">
+              <p className="text-sm text-slate-400 mb-4">
                 Upload your company logo to be used in invoices and official documents.
                 Recommended size: 200x80 pixels. Max file size: 5MB.
               </p>
@@ -270,7 +270,7 @@ export default function Settings() {
                       disabled={uploading}
                       className="hidden"
                     />
-                    <div className={`px-6 py-3 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-center cursor-pointer ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    <div className={`px-6 py-3 bg-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-center cursor-pointer ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                       {uploading ? 'Uploading...' : logoUrl ? 'Change Logo' : 'Upload Logo'}
                     </div>
                   </label>
@@ -296,12 +296,12 @@ export default function Settings() {
           </div>
 
           {/* Bank Account Settings */}
-          <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 mt-6">
+          <div className="bg-navy-900 rounded-2xl p-6 border border-navy-700/50 mt-6">
             <h2 className="text-xl font-bold text-white mb-4">Bank Account & Company Information</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">
+                <label className="block text-sm font-medium text-slate-400 mb-2">
                   Bank Name
                 </label>
                 <input
@@ -309,13 +309,13 @@ export default function Settings() {
                   value={bankSettings.bank_name}
                   onChange={(e) => setBankSettings({ ...bankSettings, bank_name: e.target.value })}
                   disabled={!isAdmin}
-                  className="w-full px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-neon-purple disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                   placeholder="e.g., MANDIRI"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">
+                <label className="block text-sm font-medium text-slate-400 mb-2">
                   Account Holder Name
                 </label>
                 <input
@@ -323,13 +323,13 @@ export default function Settings() {
                   value={bankSettings.bank_account_name}
                   onChange={(e) => setBankSettings({ ...bankSettings, bank_account_name: e.target.value })}
                   disabled={!isAdmin}
-                  className="w-full px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-neon-purple disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                   placeholder="e.g., CV. DANISH KARYA UTAMA"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">
+                <label className="block text-sm font-medium text-slate-400 mb-2">
                   Bank Account Number
                 </label>
                 <input
@@ -337,13 +337,13 @@ export default function Settings() {
                   value={bankSettings.bank_account_number}
                   onChange={(e) => setBankSettings({ ...bankSettings, bank_account_number: e.target.value })}
                   disabled={!isAdmin}
-                  className="w-full px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-neon-purple disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                   placeholder="e.g., 1090017703364"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">
+                <label className="block text-sm font-medium text-slate-400 mb-2">
                   Swift Code
                 </label>
                 <input
@@ -351,13 +351,13 @@ export default function Settings() {
                   value={bankSettings.bank_swift_code}
                   onChange={(e) => setBankSettings({ ...bankSettings, bank_swift_code: e.target.value })}
                   disabled={!isAdmin}
-                  className="w-full px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-neon-purple disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                   placeholder="e.g., BMRIIDJA"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">
+                <label className="block text-sm font-medium text-slate-400 mb-2">
                   NPWP
                 </label>
                 <input
@@ -365,13 +365,13 @@ export default function Settings() {
                   value={bankSettings.npwp}
                   onChange={(e) => setBankSettings({ ...bankSettings, npwp: e.target.value })}
                   disabled={!isAdmin}
-                  className="w-full px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-neon-purple disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                   placeholder="e.g., 91.719.463.1-213.000"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">
+                <label className="block text-sm font-medium text-slate-400 mb-2">
                   Company Address
                 </label>
                 <textarea
@@ -379,13 +379,13 @@ export default function Settings() {
                   onChange={(e) => setBankSettings({ ...bankSettings, company_address: e.target.value })}
                   disabled={!isAdmin}
                   rows={3}
-                  className="w-full px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-neon-purple disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                   placeholder="Company address for invoices"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">
+                <label className="block text-sm font-medium text-slate-400 mb-2">
                   Signatory Name
                 </label>
                 <input
@@ -393,13 +393,13 @@ export default function Settings() {
                   value={bankSettings.signatory_name}
                   onChange={(e) => setBankSettings({ ...bankSettings, signatory_name: e.target.value })}
                   disabled={!isAdmin}
-                  className="w-full px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-neon-purple disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                   placeholder="Name of person signing invoices"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-2">
+                <label className="block text-sm font-medium text-slate-400 mb-2">
                   Signatory Title
                 </label>
                 <input
@@ -407,7 +407,7 @@ export default function Settings() {
                   value={bankSettings.signatory_title}
                   onChange={(e) => setBankSettings({ ...bankSettings, signatory_title: e.target.value })}
                   disabled={!isAdmin}
-                  className="w-full px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-neon-purple disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-navy-900 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                   placeholder="Title/Company of signatory"
                 />
               </div>
@@ -416,7 +416,7 @@ export default function Settings() {
                 <button
                   onClick={handleSaveSettings}
                   disabled={saving}
-                  className={`w-full px-6 py-3 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`w-full px-6 py-3 bg-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {saving ? 'Saving...' : 'Save Settings'}
                 </button>

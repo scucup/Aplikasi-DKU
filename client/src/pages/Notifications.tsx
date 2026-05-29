@@ -34,7 +34,7 @@ export default function Notifications() {
     try {
       let query = supabase
         .from('notifications')
-        .select('*')
+        .select('id, user_id, title, message, notification_type, reference_id, reference_type, status, created_at, read_at')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
@@ -132,7 +132,7 @@ export default function Notifications() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white">Notifications</h1>
-            <p className="text-white/70 text-sm mt-1">
+            <p className="text-slate-400 text-sm mt-1">
               {notifications.filter(n => n.status === 'UNREAD').length} unread notifications
             </p>
           </div>
@@ -143,8 +143,8 @@ export default function Notifications() {
                 onClick={() => setFilter(status)}
                 className={`px-4 py-2 rounded-xl transition-all ${
                   filter === status
-                    ? 'bg-purple-600 text-white shadow-lg'
-                    : 'bg-purple-900/20 text-white/70 hover:bg-purple-900/30'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-navy-900 text-slate-400 hover:bg-navy-900'
                 }`}
               >
                 {status}
@@ -155,11 +155,11 @@ export default function Notifications() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-navy-600/50 border-t-blue-500"></div>
           </div>
         ) : notifications.length === 0 ? (
-          <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-12 border border-purple-500/20 text-center">
-            <p className="text-white/50 text-lg">No notifications found</p>
+          <div className="bg-navy-900 rounded-2xl p-12 border border-navy-700/50 text-center">
+            <p className="text-slate-500 text-lg">No notifications found</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -168,10 +168,10 @@ export default function Notifications() {
               return (
                 <div
                   key={notification.id}
-                  className={`bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border transition-all ${
+                  className={`bg-navy-900 rounded-2xl p-6 border transition-all ${
                     isUnread 
-                      ? 'border-purple-500/50 shadow-lg shadow-purple-500/20' 
-                      : 'border-purple-500/20'
+                      ? 'border-navy-600 shadow-lg shadow-blue-500/10' 
+                      : 'border-navy-700/50'
                   }`}
                 >
                   <div className="flex items-start gap-4">
@@ -185,21 +185,21 @@ export default function Notifications() {
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(notification.status)}`}>
                           {notification.status}
                         </span>
-                        <span className="text-xs text-white/50">
+                        <span className="text-xs text-slate-500">
                           {new Date(notification.created_at).toLocaleString('id-ID')}
                         </span>
                       </div>
                       
-                      <h3 className={`text-lg font-bold mb-2 ${isUnread ? 'text-white' : 'text-white/70'}`}>
+                      <h3 className={`text-lg font-bold mb-2 ${isUnread ? 'text-white' : 'text-slate-400'}`}>
                         {notification.title}
                       </h3>
                       
-                      <p className={`text-sm mb-3 ${isUnread ? 'text-white/90' : 'text-white/60'}`}>
+                      <p className={`text-sm mb-3 ${isUnread ? 'text-white/90' : 'text-slate-400'}`}>
                         {notification.message}
                       </p>
                       
                       {notification.reference_type && (
-                        <div className="text-xs text-white/50">
+                        <div className="text-xs text-slate-500">
                           Reference: {notification.reference_type}
                         </div>
                       )}
@@ -210,7 +210,7 @@ export default function Notifications() {
                       {notification.reference_type && (
                         <button
                           onClick={() => handleViewReference(notification)}
-                          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm whitespace-nowrap"
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm whitespace-nowrap"
                         >
                           View
                         </button>

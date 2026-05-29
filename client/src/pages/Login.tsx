@@ -31,27 +31,27 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-dark-purple-900 via-dark-purple-800 to-slate-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-navy-950 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">
+          <h2 className="mt-6 text-center text-3xl font-bold text-white">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-center text-sm text-white/70">
+          <p className="mt-2 text-center text-sm text-slate-400">
             DKU Adventure Rental Management
           </p>
         </div>
         
-        <form className="mt-8 space-y-6 bg-purple-900/30 backdrop-blur-sm p-8 rounded-2xl border border-purple-500/20" onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-6 bg-navy-900 p-8 rounded-xl border border-navy-700/50" onSubmit={handleSubmit}>
           {error && (
-            <div className="rounded-md bg-red-500/20 border border-red-500/50 p-4">
-              <p className="text-sm text-red-200">{error}</p>
+            <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-4">
+              <p className="text-sm text-red-400">{error}</p>
             </div>
           )}
 
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="sr-only">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1">
                 Email address
               </label>
               <input
@@ -62,12 +62,12 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-purple-500/30 bg-dark-purple-800/50 placeholder-white/40 text-white rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
+                className="block w-full px-4 py-3 bg-navy-800 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                placeholder="Enter your email"
               />
             </div>
             <div>
-              <label htmlFor="password" className="sr-only">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1">
                 Password
               </label>
               <input
@@ -78,8 +78,8 @@ export default function Login() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-purple-500/30 bg-dark-purple-800/50 placeholder-white/40 text-white rounded-b-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
+                className="block w-full px-4 py-3 bg-navy-800 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                placeholder="Enter your password"
               />
             </div>
           </div>
@@ -88,7 +88,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 transition-all"
+              className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-all"
             >
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
@@ -97,7 +97,7 @@ export default function Login() {
           <div className="text-center">
             <Link
               to="/register"
-              className="font-medium text-purple-400 hover:text-purple-300"
+              className="text-sm font-medium text-blue-400 hover:text-blue-300"
             >
               Don't have an account? Sign up
             </Link>

@@ -102,10 +102,10 @@ export default function AddToolModal({ isOpen, onClose, onSuccess }: AddToolModa
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-dark-purple-900 border border-purple-500/30 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="sticky top-0 bg-dark-purple-800 border-b border-purple-500/30 px-6 py-4 flex justify-between items-center rounded-t-xl">
+      <div className="bg-navy-900 border border-navy-600/50 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="sticky top-0 bg-navy-800 border-b border-navy-600/50 px-6 py-4 flex justify-between items-center rounded-t-xl">
           <h2 className="text-xl font-bold text-white">Add New Tool</h2>
-          <button onClick={onClose} className="text-white/60 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -113,7 +113,7 @@ export default function AddToolModal({ isOpen, onClose, onSuccess }: AddToolModa
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
+              <label className="block text-sm font-medium text-slate-200 mb-1">
                 Tool Name <span className="text-red-400">*</span>
               </label>
               <input
@@ -121,20 +121,20 @@ export default function AddToolModal({ isOpen, onClose, onSuccess }: AddToolModa
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., Impact Wrench"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
+              <label className="block text-sm font-medium text-slate-200 mb-1">
                 Category <span className="text-red-400">*</span>
               </label>
               <select
                 required
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value as ToolCategory })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="Hand Tools">Hand Tools</option>
                 <option value="Power Tools">Power Tools</option>
@@ -146,47 +146,47 @@ export default function AddToolModal({ isOpen, onClose, onSuccess }: AddToolModa
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">Brand</label>
+              <label className="block text-sm font-medium text-slate-200 mb-1">Brand</label>
               <input
                 type="text"
                 value={formData.brand}
                 onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., Makita"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">Model</label>
+              <label className="block text-sm font-medium text-slate-200 mb-1">Model</label>
               <input
                 type="text"
                 value={formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., DTW285Z"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">Serial Number</label>
+              <label className="block text-sm font-medium text-slate-200 mb-1">Serial Number</label>
               <input
                 type="text"
                 value={formData.serial_number}
                 onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., SN123456"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
+              <label className="block text-sm font-medium text-slate-200 mb-1">
                 Resort <span className="text-red-400">*</span>
               </label>
               <select
                 required
                 value={formData.resort_id}
                 onChange={(e) => setFormData({ ...formData, resort_id: e.target.value })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 {resorts.map(resort => (
                   <option key={resort.id} value={resort.id}>{resort.name}</option>
@@ -195,14 +195,14 @@ export default function AddToolModal({ isOpen, onClose, onSuccess }: AddToolModa
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
+              <label className="block text-sm font-medium text-slate-200 mb-1">
                 Condition <span className="text-red-400">*</span>
               </label>
               <select
                 required
                 value={formData.condition}
                 onChange={(e) => setFormData({ ...formData, condition: e.target.value as ToolCondition })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="good">Good</option>
                 <option value="fair">Fair</option>
@@ -213,7 +213,7 @@ export default function AddToolModal({ isOpen, onClose, onSuccess }: AddToolModa
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
+              <label className="block text-sm font-medium text-slate-200 mb-1">
                 Purchase Date <span className="text-red-400">*</span>
               </label>
               <input
@@ -221,12 +221,12 @@ export default function AddToolModal({ isOpen, onClose, onSuccess }: AddToolModa
                 required
                 value={formData.purchase_date}
                 onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">
+              <label className="block text-sm font-medium text-slate-200 mb-1">
                 Purchase Price (Rp) <span className="text-red-400">*</span>
               </label>
               <input
@@ -236,56 +236,56 @@ export default function AddToolModal({ isOpen, onClose, onSuccess }: AddToolModa
                 step="0.01"
                 value={formData.purchase_price}
                 onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="0"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">Supplier</label>
+              <label className="block text-sm font-medium text-slate-200 mb-1">Supplier</label>
               <input
                 type="text"
                 value={formData.supplier}
                 onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., PT Tool Indonesia"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/90 mb-1">Warranty Until</label>
+              <label className="block text-sm font-medium text-slate-200 mb-1">Warranty Until</label>
               <input
                 type="date"
                 value={formData.warranty_until}
                 onChange={(e) => setFormData({ ...formData, warranty_until: e.target.value })}
-                className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white/90 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-slate-200 mb-1">Notes</label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/40 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Additional notes about this tool..."
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-purple-500/30">
+          <div className="flex justify-end gap-3 pt-4 border-t border-navy-600/50">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-white/90 bg-dark-purple-800/50 border border-purple-500/30 rounded-lg hover:bg-dark-purple-700/50 transition-colors"
+              className="px-4 py-2 text-slate-200 bg-navy-800 border border-navy-600/50 rounded-lg hover:bg-navy-700 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg disabled:opacity-50"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50"
             >
               {loading ? 'Saving...' : 'Save Tool'}
             </button>

@@ -569,7 +569,7 @@ export default function Dashboard() {
 
       const { count: pendingExpenses } = await supabase
         .from('expenses')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('status', 'PENDING');
 
       // Fetch maintenance costs with same date filtering as revenue and expenses
@@ -858,39 +858,35 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="space-y-6">
         {/* Header with Period Selector */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-white tracking-tight mb-2">Dashboard Analytics</h1>
-            <p className="text-base text-white/70">Welcome back, <span className="text-white font-semibold">{profile?.name}</span></p>
+            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+            <p className="text-sm text-slate-400">Overview of your business operations</p>
           </div>
-          <div className="flex gap-3 items-center">
-            {/* Resort Analytics Button - PALING KIRI */}
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* Resort Analytics Button */}
             {isFinancialUser && (
               <button
                 onClick={() => navigate('/resort-analytics')}
-                className="px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 text-white rounded-lg font-medium hover:from-pink-700 hover:to-purple-700 transition-all flex items-center gap-2"
+                className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all flex items-center gap-2"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
                 Resort Analytics
               </button>
             )}
             
-            {/* Starting Month Selector - only show when period is selected (6m or 12m) */}
+            {/* Starting Month Selector */}
             {selectedPeriod && selectedPeriod !== 'all' && (
               <div className="flex items-center gap-2">
-                <label className="text-sm text-white/70 font-medium">Start from:</label>
+                <label className="text-sm text-slate-400 font-medium">Start from:</label>
                 <select
                   value={startingMonth}
                   onChange={(e) => setStartingMonth(e.target.value)}
-                  className="px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white font-medium hover:bg-purple-900/50 transition-all focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  style={{ 
-                    maxHeight: '400px',
-                    overflowY: 'auto'
-                  }}
+                  className="px-3 py-2 bg-navy-700 border border-navy-600 rounded-lg text-white text-sm font-medium hover:bg-navy-600 transition-all focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Current Period</option>
                   {availableStartMonths.map(monthKey => {
@@ -902,24 +898,17 @@ export default function Dashboard() {
                     );
                   })}
                 </select>
-                <span className="text-xs text-white/50">
-                  ({availableStartMonths.length} months available)
-                </span>
               </div>
             )}
             
-            {/* Month Selector - only show when NO period is selected */}
+            {/* Month Selector */}
             {!selectedPeriod && (
               <div className="flex items-center gap-2">
-                <label className="text-sm text-white/70 font-medium">Select Month:</label>
+                <label className="text-sm text-slate-400 font-medium">Month:</label>
                 <select
                   value={startingMonth}
                   onChange={(e) => setStartingMonth(e.target.value)}
-                  className="px-4 py-2 bg-purple-900/30 border border-purple-500/30 rounded-lg text-white font-medium hover:bg-purple-900/50 transition-all focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  style={{ 
-                    maxHeight: '400px',
-                    overflowY: 'auto'
-                  }}
+                  className="px-3 py-2 bg-navy-700 border border-navy-600 rounded-lg text-white text-sm font-medium hover:bg-navy-600 transition-all focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Current Month</option>
                   {availableStartMonths.map(monthKey => {
@@ -931,138 +920,134 @@ export default function Dashboard() {
                     );
                   })}
                 </select>
-                <span className="text-xs text-white/50">
-                  (Single month view)
-                </span>
               </div>
             )}
             
-            {/* Period Buttons - 6 Months, 12 Months, All Time */}
+            {/* Period Buttons */}
             <button
               onClick={() => setSelectedPeriod(selectedPeriod === '6m' ? null : '6m')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 selectedPeriod === '6m'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-purple-900/30 text-white/70 hover:bg-purple-900/50'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-navy-700 text-slate-300 hover:bg-navy-600'
               }`}
             >
-              6 Months
+              6M
             </button>
             <button
               onClick={() => setSelectedPeriod(selectedPeriod === '12m' ? null : '12m')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 selectedPeriod === '12m'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-purple-900/30 text-white/70 hover:bg-purple-900/50'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-navy-700 text-slate-300 hover:bg-navy-600'
               }`}
             >
-              12 Months
+              12M
             </button>
             <button
               onClick={() => setSelectedPeriod(selectedPeriod === 'all' ? null : 'all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 selectedPeriod === 'all'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-purple-900/30 text-white/70 hover:bg-purple-900/50'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-navy-700 text-slate-300 hover:bg-navy-600'
               }`}
             >
-              All Time
+              All
             </button>
           </div>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-navy-600 border-t-blue-500"></div>
           </div>
         ) : (
           <>
-            {/* Key Metrics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {/* Total Assets with Utilization */}
-              <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 backdrop-blur-sm rounded-2xl p-6 border border-blue-500/30 hover:border-blue-500/50 transition-all">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-blue-500/20 rounded-xl">
-                    <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            {/* Key Metrics Cards - NAS Style */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {/* Total Assets */}
+              <div className="bg-navy-900 rounded-xl p-5 border border-navy-700/50 hover:border-navy-600 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">ASSETS</p>
+                  <div className="p-2 bg-blue-500/10 rounded-lg">
+                    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
                   </div>
                 </div>
-                <p className="text-3xl font-bold text-white mb-1">{displayedStats.totalAssets}</p>
-                <p className="text-sm text-white/70">Total Assets</p>
-                <div className="mt-3 flex items-center text-xs">
-                  <span className="text-green-400 font-semibold">{displayedStats.activeAssets} Active</span>
-                  <span className="text-white/50 mx-2">•</span>
-                  <span className="text-orange-400 font-semibold">{displayedStats.maintenanceAssets} Maintenance</span>
+                <p className="text-3xl font-bold text-white mb-2">{displayedStats.totalAssets}</p>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-green-400">{displayedStats.activeAssets} active</span>
+                  <span className="text-orange-400">{displayedStats.maintenanceAssets} maintenance</span>
                 </div>
                 <div className="mt-3">
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-white/70">Utilization</span>
+                    <span className="text-slate-400">Utilization</span>
                     <span className="text-blue-400 font-semibold">{displayedStats.utilizationRate.toFixed(1)}%</span>
                   </div>
-                  <div className="w-full bg-white/10 rounded-full h-2">
+                  <div className="w-full bg-navy-700 rounded-full h-1.5">
                     <div 
-                      className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full transition-all duration-500"
+                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
                       style={{ width: `${displayedStats.utilizationRate}%` }}
                     ></div>
                   </div>
                 </div>
               </div>
 
-              {/* DKU Share with Total Revenue */}
+              {/* DKU Share */}
               {isFinancialUser && (
-                <div className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30 hover:border-purple-500/50 transition-all">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-purple-500/20 rounded-xl">
-                      <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <div className="bg-navy-900 rounded-xl p-5 border border-navy-700/50 hover:border-navy-600 transition-all">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">DKU SHARE</p>
+                    <div className="p-2 bg-emerald-500/10 rounded-lg">
+                      <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                   </div>
                   <p className="text-2xl font-bold text-white mb-1">
                     Rp {displayedStats.totalDkuShare.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                   </p>
-                  <p className="text-sm text-white/70">DKU Share</p>
-                  <p className="text-xs text-purple-300 mt-2">
-                    Total Revenue: Rp {displayedStats.totalRevenue.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                  <p className="text-xs text-slate-400 mt-2">
+                    Revenue: Rp {displayedStats.totalRevenue.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                   </p>
                 </div>
               )}
 
               {/* Total Expenses */}
               {isFinancialUser && (
-                <div className="bg-gradient-to-br from-orange-600/20 to-orange-800/20 backdrop-blur-sm rounded-2xl p-6 border border-orange-500/30 hover:border-orange-500/50 transition-all">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-orange-500/20 rounded-xl">
-                      <svg className="w-8 h-8 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                <div className="bg-navy-900 rounded-xl p-5 border border-navy-700/50 hover:border-navy-600 transition-all">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">EXPENSES</p>
+                    <div className="p-2 bg-orange-500/10 rounded-lg">
+                      <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                     </div>
                   </div>
                   <p className="text-2xl font-bold text-white mb-1">
                     Rp {displayedStats.totalExpenses.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                   </p>
-                  <p className="text-sm text-white/70">Total Expenses</p>
-                  <p className="text-xs text-orange-300 mt-2">
-                    Approved only • {displayedStats.pendingExpenses} pending
+                  <p className="text-xs text-slate-400 mt-2">
+                    Approved • <span className="text-orange-400">{displayedStats.pendingExpenses} pending</span>
                   </p>
                 </div>
               )}
 
               {/* Net Profit */}
               {isFinancialUser && (
-                <div className="bg-gradient-to-br from-pink-600/20 to-pink-800/20 backdrop-blur-sm rounded-2xl p-6 border border-pink-500/30 hover:border-pink-500/50 transition-all">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 bg-pink-500/20 rounded-xl">
-                      <svg className="w-8 h-8 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                <div className="bg-navy-900 rounded-xl p-5 border border-navy-700/50 hover:border-navy-600 transition-all">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">NET PROFIT</p>
+                    <div className={`p-2 rounded-lg ${displayedStats.netProfit >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                      <svg className={`w-5 h-5 ${displayedStats.netProfit >= 0 ? 'text-green-400' : 'text-red-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                       </svg>
                     </div>
                   </div>
                   <p className="text-2xl font-bold text-white mb-1">
                     Rp {displayedStats.netProfit.toLocaleString('id-ID', { maximumFractionDigits: 0 })}
                   </p>
-                  <p className="text-sm text-white/70">Net Profit</p>
                   <p className={`text-xs mt-2 font-semibold ${displayedStats.profitMargin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     Margin: {displayedStats.profitMargin.toFixed(1)}%
                   </p>
@@ -1072,13 +1057,13 @@ export default function Dashboard() {
 
             {/* Monthly Trend Charts */}
             {isFinancialUser && monthlyData.length > 0 && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                 <AreaChart
                   data={monthlyRevenueData}
                   title="Monthly DKU Share vs Expenses"
                   dataKeys={[
-                    { key: 'dkuShare', color: '#8b5cf6', name: 'DKU Share' },
-                    { key: 'expenses', color: '#ec4899', name: 'Expenses' },
+                    { key: 'dkuShare', color: '#3b82f6', name: 'DKU Share' },
+                    { key: 'expenses', color: '#ef4444', name: 'Expenses' },
                   ]}
                   highlightPeriod={selectedCardPeriod}
                 />
@@ -1092,7 +1077,7 @@ export default function Dashboard() {
             )}
 
             {/* Revenue Analysis Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
               {isFinancialUser && revenueChartData.length > 0 && (
                 <RevenueChart data={revenueChartData} />
               )}
@@ -1101,7 +1086,7 @@ export default function Dashboard() {
                 <DonutChart
                   data={expensesDistributionData}
                   title="Expenses Distribution"
-                  colors={['#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#ef4444', '#6366f1']}
+                  colors={['#f59e0b', '#ef4444', '#3b82f6', '#06b6d4', '#10b981', '#8b5cf6', '#6366f1']}
                 />
               )}
 
@@ -1109,7 +1094,7 @@ export default function Dashboard() {
                 <DonutChart
                   data={categoryRevenueData}
                   title="Revenue by Category"
-                  colors={['#8b5cf6', '#ec4899', '#06b6d4', '#f59e0b', '#10b981']}
+                  colors={['#3b82f6', '#ef4444', '#06b6d4', '#f59e0b', '#10b981']}
                 />
               )}
 
@@ -1124,53 +1109,69 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Summary Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Summary Stats Grid - NAS Style */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {isFinancialUser && (
                 <div 
                   onClick={() => navigate('/resort-analytics')}
-                  className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 hover:scale-105 hover:border-purple-500/50 transition-all cursor-pointer"
+                  className="bg-navy-900 rounded-xl p-5 border border-navy-700/50 hover:border-blue-500/50 transition-all cursor-pointer group"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="text-4xl">🏨</div>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-all">
+                      <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
                     <div>
-                      <p className="text-3xl font-bold text-white">{stats.totalResorts}</p>
-                      <p className="text-sm text-white/70">Partner Resorts</p>
-                      <p className="text-xs text-purple-400 mt-1">Click to compare →</p>
+                      <p className="text-2xl font-bold text-white">{stats.totalResorts}</p>
+                      <p className="text-xs text-slate-400">Partner Resorts</p>
                     </div>
                   </div>
                 </div>
               )}
 
-              <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 hover:scale-105 transition-transform">
-                <div className="flex items-center gap-4">
-                  <div className="text-4xl">🔧</div>
+              <div className="bg-navy-900 rounded-xl p-5 border border-navy-700/50 hover:border-navy-600 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-500/10 rounded-lg">
+                    <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
                   <div>
-                    <p className="text-3xl font-bold text-white">
+                    <p className="text-2xl font-bold text-white">
                       Rp {(stats.totalMaintenanceCost / 1000000).toFixed(1)}M
                     </p>
-                    <p className="text-sm text-white/70">Maintenance Cost</p>
+                    <p className="text-xs text-slate-400">Maintenance Cost</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 hover:scale-105 transition-transform">
-                <div className="flex items-center gap-4">
-                  <div className="text-4xl">✅</div>
+              <div className="bg-navy-900 rounded-xl p-5 border border-navy-700/50 hover:border-navy-600 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/10 rounded-lg">
+                    <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
                   <div>
-                    <p className="text-3xl font-bold text-white">{stats.activeAssets}</p>
-                    <p className="text-sm text-white/70">Active Assets</p>
+                    <p className="text-2xl font-bold text-white">{stats.activeAssets}</p>
+                    <p className="text-xs text-slate-400">Active Assets</p>
                   </div>
                 </div>
               </div>
 
               {isFinancialUser && (
-                <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20 hover:scale-105 transition-transform">
-                  <div className="flex items-center gap-4">
-                    <div className="text-4xl">⏳</div>
+                <div className="bg-navy-900 rounded-xl p-5 border border-navy-700/50 hover:border-navy-600 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-500/10 rounded-lg">
+                      <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
                     <div>
-                      <p className="text-3xl font-bold text-white">{stats.pendingExpenses}</p>
-                      <p className="text-sm text-white/70">Pending Approvals</p>
+                      <p className="text-2xl font-bold text-white">{stats.pendingExpenses}</p>
+                      <p className="text-xs text-slate-400">Pending Approvals</p>
                     </div>
                   </div>
                 </div>

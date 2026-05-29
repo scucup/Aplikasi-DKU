@@ -9,7 +9,7 @@ interface AreaChartProps {
 
 export default function AreaChart({ data, title, dataKeys, highlightPeriod }: AreaChartProps) {
   return (
-    <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
+    <div className="bg-navy-900 rounded-2xl p-6 border border-navy-700/50">
       <h3 className="text-xl font-bold text-white mb-6">{title}</h3>
       <ResponsiveContainer width="100%" height={300}>
         <RechartsAreaChart data={data}>

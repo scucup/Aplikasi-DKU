@@ -13,8 +13,8 @@ const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0];
     return (
-      <div className="bg-gray-900 border-2 border-purple-400 rounded-xl p-4 shadow-2xl">
-        <p className="text-purple-300 font-semibold text-sm mb-1">{data.name}</p>
+      <div className="bg-gray-900 border border-navy-600 rounded-xl p-4 shadow-2xl">
+        <p className="text-blue-300 font-semibold text-sm mb-1">{data.name}</p>
         <p className="text-white font-bold text-lg">
           Rp {Number(data.value).toLocaleString('id-ID')}
         </p>
@@ -33,7 +33,7 @@ export default function DonutChart({ data, title, colors }: DonutChartProps) {
   const dataWithTotal = data.map(item => ({ ...item, total }));
 
   return (
-    <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-500/20">
+    <div className="bg-navy-900 rounded-xl p-6 shadow-lg border border-navy-700/50">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xl font-bold text-white">{title}</h3>
       </div>
@@ -58,7 +58,7 @@ export default function DonutChart({ data, title, colors }: DonutChartProps) {
           </PieChart>
         </ResponsiveContainer>
       ) : (
-        <div className="flex items-center justify-center h-[280px] text-white/50">
+        <div className="flex items-center justify-center h-[280px] text-slate-500">
           No data for selected period
         </div>
       )}

@@ -351,59 +351,63 @@ export default function Revenue() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto p-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white">Revenue Records</h1>
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-white">Revenue</h1>
+            <p className="text-xs text-slate-400">Track all revenue records</p>
+          </div>
           {canCreate && (
             <button
               onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium"
             >
               + Add Revenue
             </button>
           )}
         </div>
 
-        {/* Statistics Cards - same style as Expenses */}
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-purple-900/30 backdrop-blur-sm rounded-xl p-4 border border-purple-500/30">
-            <div className="text-sm text-purple-200 font-medium mb-1">
-              Total Revenue {isFilterActive && <span className="text-yellow-300">(Filtered)</span>}
+        {/* Statistics Cards - Compact */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+            <div className="text-xs text-slate-400 font-medium mb-1 uppercase tracking-wider">
+              Total Revenue {isFilterActive && <span className="text-yellow-400">(Filtered)</span>}
             </div>
-            <div className="text-2xl font-bold text-white">
-              Rp {statistics.totalRevenue.toLocaleString('id-ID')}
+            <div className="text-lg font-bold text-white whitespace-nowrap">
+              Rp{'\u00A0'}{statistics.totalRevenue.toLocaleString('id-ID')}
             </div>
-            <div className="text-xs text-purple-300 mt-1">
+            <div className="text-[11px] text-slate-500 mt-1">
               {statistics.count} records {isFilterActive && `of ${records.length}`}
             </div>
           </div>
-          <div className="bg-blue-900/30 backdrop-blur-sm rounded-xl p-4 border border-blue-500/30">
-            <div className="text-sm text-blue-200 font-medium mb-1">
-              Total Net Amount {isFilterActive && <span className="text-yellow-300">(Filtered)</span>}
+          <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+            <div className="text-xs text-slate-400 font-medium mb-1 uppercase tracking-wider">
+              Net Amount {isFilterActive && <span className="text-yellow-400">(Filtered)</span>}
             </div>
-            <div className="text-2xl font-bold text-white">
-              Rp {statistics.totalNetAmount.toLocaleString('id-ID')}
+            <div className="text-lg font-bold text-white whitespace-nowrap">
+              Rp{'\u00A0'}{statistics.totalNetAmount.toLocaleString('id-ID')}
             </div>
-            <div className="text-xs text-blue-300 mt-1">
+            <div className="text-[11px] text-slate-500 mt-1">
               After discount & tax
             </div>
           </div>
-          <div className="bg-green-900/30 backdrop-blur-sm rounded-xl p-4 border border-green-500/30">
-            <div className="text-sm text-green-200 font-medium mb-1">
-              Total DKU Share {isFilterActive && <span className="text-yellow-300">(Filtered)</span>}
+          <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+            <div className="text-xs text-slate-400 font-medium mb-1 uppercase tracking-wider">
+              DKU Share {isFilterActive && <span className="text-yellow-400">(Filtered)</span>}
             </div>
-            <div className="text-2xl font-bold text-white">
-              Rp {statistics.totalDkuShare.toLocaleString('id-ID')}
+            <div className="text-lg font-bold text-emerald-400 whitespace-nowrap">
+              Rp{'\u00A0'}{statistics.totalDkuShare.toLocaleString('id-ID')}
             </div>
-            <div className="text-xs text-green-300 mt-1">
+            <div className="text-[11px] text-slate-500 mt-1">
               Profit sharing
             </div>
           </div>
         </div>
 
         {!canCreate && (
-          <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
-            <p className="text-sm text-yellow-200">
+          <div className="p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+            <p className="text-xs text-yellow-300">
               You don't have permission to create revenue records. Only ADMIN and MANAGER can create.
             </p>
           </div>
@@ -411,15 +415,15 @@ export default function Revenue() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-4 border-navy-600 border-t-blue-500"></div>
           </div>
         ) : (
-          <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
-            {/* Filters - same style as Assets page */}
-            <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-purple-500/20 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="relative">
-                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-navy-900 rounded-xl border border-navy-700/50 overflow-hidden">
+            {/* Compact Filters */}
+            <div className="p-4 border-b border-navy-700/50">
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative flex-1 min-w-[180px] max-w-[240px]">
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
@@ -427,25 +431,23 @@ export default function Revenue() {
                     placeholder="Search billing no..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="w-full pl-9 pr-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
-                
                 <select
                   value={selectedResort}
                   onChange={(e) => setSelectedResort(e.target.value)}
-                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="all">All Resorts</option>
                   {resorts.map(resort => (
                     <option key={resort.id} value={resort.id}>{resort.name}</option>
                   ))}
                 </select>
-                
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="all">All Categories</option>
                   <option value="ATV">ATV</option>
@@ -454,42 +456,38 @@ export default function Revenue() {
                   <option value="POOL_TOYS">Pool Toys</option>
                   <option value="LINE_SPORT">Line Sport</option>
                 </select>
-                
                 <input
                   type="date"
-                  placeholder="Start Date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
                 />
-                
                 <input
                   type="date"
-                  placeholder="End Date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-purple-500/20">
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Date</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Billing No.</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Resort</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Category</th>
-                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Amount</th>
-                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Discount</th>
-                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Tax & Service</th>
-                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Net Amount</th>
-                    <th className="text-right py-3 px-4 text-white/90 font-semibold">DKU Share</th>
-                    {canCreate && <th className="text-center py-3 px-4 text-white/90 font-semibold">Actions</th>}
+                  <tr className="border-b border-navy-700/50 bg-navy-800/50">
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Date</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Billing No.</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Resort</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Category</th>
+                    <th className="text-right py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">Amount</th>
+                    <th className="text-right py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">Discount</th>
+                    <th className="text-right py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">Tax & Svc</th>
+                    <th className="text-right py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">Net Amount</th>
+                    <th className="text-right py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">DKU Share</th>
+                    {canCreate && <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Actions</th>}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-navy-700/30">
                   {filteredRecords.map((record) => {
                     const discountPercentage = Number(record.discount_percentage) || 0;
                     const discount = Number(record.discount) || 0;
@@ -500,103 +498,74 @@ export default function Revenue() {
                     const dkuPercentage = record.dku_percentage || 0;
                     
                     return (
-                      <tr key={record.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
-                        <td className="py-3 px-4 text-white">
-                          {new Date(record.date).toLocaleDateString('id-ID', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
+                      <tr key={record.id} className="hover:bg-navy-800/50 transition-colors">
+                        <td className="py-2.5 px-3 text-slate-300 text-xs whitespace-nowrap">
+                          {new Date(record.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </td>
-                        <td className="py-3 px-4 text-white/70">
+                        <td className="py-2.5 px-3 text-slate-400 text-xs">
                           {record.billing_no || '-'}
                         </td>
-                        <td className="py-3 px-4 text-white/70">
+                        <td className="py-2.5 px-3 text-slate-300 text-xs max-w-[120px] truncate">
                           {(record as any).resort?.name || '-'}
                         </td>
-                        <td className="py-3 px-4">
-                          <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                            {record.asset_category}
+                        <td className="py-2.5 px-3">
+                          <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-400 rounded text-[10px] font-medium">
+                            {record.asset_category.replace('_', ' ')}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right text-white/70">
-                          Rp {Number(record.amount).toLocaleString('id-ID')}
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          <span className="text-slate-300 text-xs">Rp{'\u00A0'}{Number(record.amount).toLocaleString('id-ID')}</span>
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
                           {discount > 0 ? (
-                            <div className="text-right">
-                              <span className="text-red-400 font-medium">
-                                - Rp {discount.toLocaleString('id-ID')}
-                              </span>
-                              <div className="text-xs text-red-300/70">
-                                ({discountPercentage}%)
-                              </div>
-                            </div>
+                            <span className="text-red-400 text-xs">-{discountPercentage}%</span>
                           ) : (
-                            <span className="text-white/50">-</span>
+                            <span className="text-slate-600 text-xs">-</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
                           {taxService > 0 ? (
-                            <div className="text-right">
-                              <span className="text-orange-400 font-medium">
-                                - Rp {taxService.toLocaleString('id-ID')}
-                              </span>
-                              <div className="text-xs text-orange-300/70">
-                                {record.tax_service_type === 'PERCENTAGE' 
-                                  ? `(${taxServicePercentage.toFixed(1)}%)`
-                                  : '(Fixed)'}
-                              </div>
-                            </div>
+                            <span className="text-orange-400 text-xs">
+                              {record.tax_service_type === 'PERCENTAGE' ? `-${taxServicePercentage.toFixed(0)}%` : `Rp${'\u00A0'}${taxService.toLocaleString('id-ID')}`}
+                            </span>
                           ) : (
-                            <span className="text-white/50">-</span>
+                            <span className="text-slate-600 text-xs">-</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="text-white font-bold">
-                            Rp {netAmount.toLocaleString('id-ID')}
-                          </span>
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          <span className="text-white font-semibold text-xs">Rp{'\u00A0'}{netAmount.toLocaleString('id-ID')}</span>
                         </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="text-right">
-                            <span className="text-green-400 font-bold">
-                              Rp {dkuShare.toLocaleString('id-ID')}
-                            </span>
-                            <div className="text-xs text-green-300/70">
-                              ({dkuPercentage}%)
-                              {!(record as any).hasConfig && (
-                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                  No Config
-                                </span>
-                              )}
-                            </div>
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          <div>
+                            <span className="text-emerald-400 font-semibold text-xs">Rp{'\u00A0'}{dkuShare.toLocaleString('id-ID')}</span>
+                            <span className="text-slate-500 text-[10px] ml-1">({dkuPercentage}%)</span>
                           </div>
                         </td>
                         {canCreate && (
-                          <td className="py-3 px-4">
-                            <div className="flex items-center justify-center gap-2">
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center justify-center gap-1">
                               <button
                                 onClick={() => handleEdit(record)}
-                                className="p-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-lg transition-colors"
+                                className="w-7 h-7 flex items-center justify-center bg-blue-600/20 text-blue-400 rounded hover:bg-blue-600/40 transition-colors"
                                 title="Edit"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
                               </button>
                               <button
                                 onClick={() => handleDelete(record.id, record.billing_no || '')}
                                 disabled={deletingId === record.id}
-                                className="p-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-7 h-7 flex items-center justify-center bg-red-600/20 text-red-400 rounded hover:bg-red-600/40 transition-colors disabled:opacity-50"
                                 title="Delete"
                               >
                                 {deletingId === record.id ? (
-                                  <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                   </svg>
                                 ) : (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                   </svg>
                                 )}
@@ -609,10 +578,10 @@ export default function Revenue() {
                   })}
                   {filteredRecords.length === 0 && (
                     <tr>
-                      <td colSpan={canCreate ? 10 : 9} className="py-8 text-center text-white/50">
+                      <td colSpan={canCreate ? 10 : 9} className="py-12 text-center text-slate-500 text-sm">
                         {isFilterActive 
                           ? 'No revenue records match your filters' 
-                          : 'No revenue records available'}
+                          : 'No revenue records yet'}
                       </td>
                     </tr>
                   )}
@@ -625,7 +594,7 @@ export default function Revenue() {
         {/* Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30">
+            <div className="bg-navy-900 rounded-2xl p-8 max-w-md w-full border border-navy-600/50">
               <h2 className="text-2xl font-bold text-white mb-6">
                 {editingRecord ? 'Edit Revenue Record' : 'Add Revenue Record'}
               </h2>
@@ -640,7 +609,7 @@ export default function Revenue() {
                       setFormData({ ...formData, resort_id: resortId, asset_category: '' });
                       fetchAvailableCategories(resortId);
                     }}
-                    className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select Resort</option>
                     {resorts.map((resort) => (
@@ -661,7 +630,7 @@ export default function Revenue() {
                       setFormData({ ...formData, asset_category: e.target.value as AssetCategory })
                     }
                     disabled={!formData.resort_id || availableCategories.length === 0}
-                    className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">
                       {!formData.resort_id 
@@ -689,18 +658,18 @@ export default function Revenue() {
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-white/90 mb-1">
-                    Billing No. <span className="text-white/60 text-xs">(Optional)</span>
+                    Billing No. <span className="text-slate-400 text-xs">(Optional)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.billing_no}
                     onChange={(e) => setFormData({ ...formData, billing_no: e.target.value })}
-                    className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter billing number"
                   />
                 </div>
@@ -713,13 +682,13 @@ export default function Revenue() {
                     step="0.01"
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    className="w-full px-4 py-2 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter revenue amount"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-white/90 mb-1">
-                    Discount <span className="text-white/60 text-xs">(Optional)</span>
+                    Discount <span className="text-slate-400 text-xs">(Optional)</span>
                   </label>
                   <div className="flex gap-2 mb-2">
                     <button
@@ -727,8 +696,8 @@ export default function Revenue() {
                       onClick={() => setFormData({ ...formData, discount_type: 'PERCENTAGE', discount_value: '' })}
                       className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         formData.discount_type === 'PERCENTAGE'
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-purple-800/30 text-white/60 hover:bg-purple-800/50'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-navy-800 text-slate-400 hover:bg-navy-800'
                       }`}
                     >
                       Percentage (%)
@@ -738,8 +707,8 @@ export default function Revenue() {
                       onClick={() => setFormData({ ...formData, discount_type: 'FIXED_AMOUNT', discount_value: '' })}
                       className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         formData.discount_type === 'FIXED_AMOUNT'
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-purple-800/30 text-white/60 hover:bg-purple-800/50'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-navy-800 text-slate-400 hover:bg-navy-800'
                       }`}
                     >
                       Fixed Amount (Rp)
@@ -753,17 +722,17 @@ export default function Revenue() {
                       step="0.01"
                       value={formData.discount_value}
                       onChange={(e) => setFormData({ ...formData, discount_value: e.target.value })}
-                      className="w-full px-4 py-2 pr-12 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-4 py-2 pr-12 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder={formData.discount_type === 'PERCENTAGE' ? 'Enter percentage' : 'Enter amount'}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                       {formData.discount_type === 'PERCENTAGE' ? '%' : 'Rp'}
                     </span>
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-white/90 mb-1">
-                    Tax & Service <span className="text-white/60 text-xs">(Optional)</span>
+                    Tax & Service <span className="text-slate-400 text-xs">(Optional)</span>
                   </label>
                   <div className="flex gap-2 mb-2">
                     <button
@@ -771,8 +740,8 @@ export default function Revenue() {
                       onClick={() => setFormData({ ...formData, tax_service_type: 'PERCENTAGE', tax_service_value: '' })}
                       className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         formData.tax_service_type === 'PERCENTAGE'
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-purple-800/30 text-white/60 hover:bg-purple-800/50'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-navy-800 text-slate-400 hover:bg-navy-800'
                       }`}
                     >
                       Percentage (%)
@@ -782,8 +751,8 @@ export default function Revenue() {
                       onClick={() => setFormData({ ...formData, tax_service_type: 'FIXED_AMOUNT', tax_service_value: '' })}
                       className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         formData.tax_service_type === 'FIXED_AMOUNT'
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-purple-800/30 text-white/60 hover:bg-purple-800/50'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-navy-800 text-slate-400 hover:bg-navy-800'
                       }`}
                     >
                       Fixed Amount (Rp)
@@ -797,25 +766,25 @@ export default function Revenue() {
                       step="0.01"
                       value={formData.tax_service_value}
                       onChange={(e) => setFormData({ ...formData, tax_service_value: e.target.value })}
-                      className="w-full px-4 py-2 pr-12 bg-purple-800/50 border border-purple-500/30 text-white rounded-lg focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-4 py-2 pr-12 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
                       placeholder={formData.tax_service_type === 'PERCENTAGE' ? 'Enter percentage' : 'Enter amount'}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                       {formData.tax_service_type === 'PERCENTAGE' ? '%' : 'Rp'}
                     </span>
                   </div>
                 </div>
                 {formData.amount && (parseFloat(formData.discount_value || '0') > 0 || parseFloat(formData.tax_service_value || '0') > 0) && (
-                  <div className="p-3 bg-purple-800/30 rounded-lg border border-purple-500/20">
+                  <div className="p-3 bg-navy-800 rounded-lg border border-navy-700/50">
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="text-white/70">Revenue:</span>
+                      <span className="text-slate-400">Revenue:</span>
                       <span className="text-white font-medium">
                         Rp {parseFloat(formData.amount).toLocaleString('id-ID')}
                       </span>
                     </div>
                     {formData.discount_value && parseFloat(formData.discount_value) > 0 && (
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="text-white/70">
+                        <span className="text-slate-400">
                           Discount {formData.discount_type === 'PERCENTAGE' ? `(${formData.discount_value}%)` : ''}:
                         </span>
                         <span className="text-red-400 font-medium">
@@ -837,7 +806,7 @@ export default function Revenue() {
                     )}
                     {formData.tax_service_value && parseFloat(formData.tax_service_value) > 0 && (
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="text-white/70">
+                        <span className="text-slate-400">
                           Tax & Service {formData.tax_service_type === 'PERCENTAGE' ? `(${formData.tax_service_value}%)` : ''}:
                         </span>
                         <span className="text-orange-400 font-medium">
@@ -867,7 +836,7 @@ export default function Revenue() {
                         </span>
                       </div>
                     )}
-                    <div className="border-t border-purple-500/20 mt-2 pt-2 flex justify-between text-sm">
+                    <div className="border-t border-navy-700/50 mt-2 pt-2 flex justify-between text-sm">
                       <span className="text-white/90 font-semibold">Net Amount:</span>
                       <span className="text-green-400 font-bold">
                         Rp {(() => {
@@ -901,13 +870,13 @@ export default function Revenue() {
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
+                    className="flex-1 px-4 py-2 bg-navy-800 text-white rounded-lg hover:bg-navy-700 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors font-semibold"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
                   >
                     {editingRecord ? 'Update' : 'Create'}
                   </button>

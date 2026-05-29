@@ -425,7 +425,7 @@ export default function Expenses() {
       case 'SALARY':
         return 'bg-green-500';
       case 'FUEL':
-        return 'bg-purple-500';
+        return 'bg-blue-500';
       case 'BUSINESS_TRAVEL':
         return 'bg-orange-500';
       case 'MARKETING':
@@ -653,7 +653,7 @@ export default function Expenses() {
         // Get tool details from expense_tools
         const { data: toolDetails } = await supabase
           .from('expense_tools')
-          .select('*')
+          .select('tool_name, category, brand, model, serial_number, condition, warranty_until, notes')
           .eq('expense_id', selectedExpense.id)
           .maybeSingle();
 
@@ -708,7 +708,7 @@ export default function Expenses() {
         // Get expense sparepart items
         const { data: sparepartItemsData } = await supabase
           .from('expense_spareparts')
-          .select('*')
+          .select('sparepart_name, asset_category, quantity, unit_price')
           .eq('expense_id', selectedExpense.id);
 
         if (sparepartItemsData && sparepartItemsData.length > 0) {
@@ -716,7 +716,7 @@ export default function Expenses() {
             // Check if inventory exists
             const { data: existingInventory } = await supabase
               .from('sparepart_inventory')
-              .select('*')
+              .select('id, current_stock')
               .eq('sparepart_name', item.sparepart_name)
               .eq('asset_category', item.asset_category)
               .eq('resort_id', selectedExpense.resort_id)
@@ -928,151 +928,76 @@ export default function Expenses() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto p-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white">Expenses Management</h1>
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-white">Expenses</h1>
+            <p className="text-xs text-slate-400">Track and manage all expenses</p>
+          </div>
           {canCreate && (
             <button
               onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all"
+              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium"
             >
               + Add Expense
             </button>
           )}
         </div>
 
-        {/* Statistics for Manager */}
+        {/* Statistics - Compact */}
         {canApprove && (
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-yellow-900/30 backdrop-blur-sm rounded-xl p-4 border border-yellow-500/30">
-              <div className="text-sm text-yellow-200 font-medium mb-1">
-                Pending {isFilterActive && <span className="text-yellow-100">(Filtered)</span>}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+              <div className="text-xs text-amber-400 font-medium uppercase tracking-wider">
+                Pending {isFilterActive && <span className="text-yellow-400">(F)</span>}
               </div>
-              <div className="text-2xl font-bold text-white">
-                Rp {statistics.pending.amount.toLocaleString('id-ID')}
+              <div className="text-lg font-bold text-white mt-1 whitespace-nowrap">
+                Rp{'\u00A0'}{statistics.pending.amount.toLocaleString('id-ID')}
               </div>
-              <div className="text-xs text-yellow-300 mt-1">
-                {statistics.pending.count} records {isFilterActive && `of ${expenses.filter(e => e.status === 'PENDING').length}`}
-              </div>
-            </div>
-            <div className="bg-green-900/30 backdrop-blur-sm rounded-xl p-4 border border-green-500/30">
-              <div className="text-sm text-green-200 font-medium mb-1">
-                Approved {isFilterActive && <span className="text-green-100">(Filtered)</span>}
-              </div>
-              <div className="text-2xl font-bold text-white">
-                Rp {statistics.approved.amount.toLocaleString('id-ID')}
-              </div>
-              <div className="text-xs text-green-300 mt-1">
-                {statistics.approved.count} records {isFilterActive && `of ${expenses.filter(e => e.status === 'APPROVED').length}`}
+              <div className="text-[11px] text-slate-500 mt-1">
+                {statistics.pending.count} records
               </div>
             </div>
-            <div className="bg-red-900/30 backdrop-blur-sm rounded-xl p-4 border border-red-500/30">
-              <div className="text-sm text-red-200 font-medium mb-1">
-                Rejected {isFilterActive && <span className="text-red-100">(Filtered)</span>}
+            <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+              <div className="text-xs text-green-400 font-medium uppercase tracking-wider">
+                Approved {isFilterActive && <span className="text-yellow-400">(F)</span>}
               </div>
-              <div className="text-2xl font-bold text-white">
-                Rp {statistics.rejected.amount.toLocaleString('id-ID')}
+              <div className="text-lg font-bold text-white mt-1 whitespace-nowrap">
+                Rp{'\u00A0'}{statistics.approved.amount.toLocaleString('id-ID')}
               </div>
-              <div className="text-xs text-red-300 mt-1">
-                {statistics.rejected.count} records {isFilterActive && `of ${expenses.filter(e => e.status === 'REJECTED').length}`}
+              <div className="text-[11px] text-slate-500 mt-1">
+                {statistics.approved.count} records
               </div>
             </div>
-            <div className="bg-blue-900/30 backdrop-blur-sm rounded-xl p-4 border border-blue-500/30">
-              <div className="text-sm text-blue-200 font-medium mb-1">
-                Total {isFilterActive && <span className="text-blue-100">(Filtered)</span>}
+            <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+              <div className="text-xs text-red-400 font-medium uppercase tracking-wider">
+                Rejected {isFilterActive && <span className="text-yellow-400">(F)</span>}
               </div>
-              <div className="text-2xl font-bold text-white">
-                Rp {statistics.total.amount.toLocaleString('id-ID')}
+              <div className="text-lg font-bold text-white mt-1 whitespace-nowrap">
+                Rp{'\u00A0'}{statistics.rejected.amount.toLocaleString('id-ID')}
               </div>
-              <div className="text-xs text-blue-300 mt-1">
-                {statistics.total.count} records {isFilterActive && `of ${expenses.length}`}
+              <div className="text-[11px] text-slate-500 mt-1">
+                {statistics.rejected.count} records
+              </div>
+            </div>
+            <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+              <div className="text-xs text-blue-400 font-medium uppercase tracking-wider">
+                Total {isFilterActive && <span className="text-yellow-400">(F)</span>}
+              </div>
+              <div className="text-lg font-bold text-white mt-1 whitespace-nowrap">
+                Rp{'\u00A0'}{statistics.total.amount.toLocaleString('id-ID')}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1">
+                {statistics.total.count} records
               </div>
             </div>
           </div>
         )}
 
-        {/* Filters - same style as Assets page */}
-        <div className="bg-purple-900/20 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-purple-500/20 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search expenses..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-            
-            <select
-              value={selectedResort}
-              onChange={(e) => setSelectedResort(e.target.value)}
-              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              <option value="all">All Resorts</option>
-              {resorts.map(resort => (
-                <option key={resort.id} value={resort.id}>{resort.name}</option>
-              ))}
-            </select>
-            
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              <option value="all">All Categories</option>
-              <option value="OPERATIONAL">Operational</option>
-              <option value="FUEL">Fuel</option>
-              <option value="MARKETING">Marketing</option>
-              <option value="SPAREPART">Sparepart</option>
-              <option value="SALARY">Salary</option>
-              <option value="BUSINESS_TRAVEL">Business Travel</option>
-              <option value="SERVICE">Service</option>
-              <option value="TOOLS">Tools</option>
-              <option value="BANK_INSTALLMENT">Bank Installment</option>
-              <option value="UTILITY">Utility</option>
-              <option value="TAX">Tax</option>
-              <option value="BPJS">BPJS</option>
-              <option value="ASSET">Asset</option>
-              <option value="ZAKAT">Zakat</option>
-              <option value="OTHER">Other</option>
-            </select>
-            
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as 'all' | ApprovalStatus)}
-              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="PENDING">Pending</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Rejected</option>
-            </select>
-            
-            <input
-              type="date"
-              placeholder="Start Date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-            
-            <input
-              type="date"
-              placeholder="End Date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="px-4 py-2 bg-purple-800/50 border border-purple-500/30 rounded-lg text-white placeholder-white/50 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-
         {!canCreate && (
-          <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
-            <p className="text-sm text-yellow-200">
+          <div className="p-3 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+            <p className="text-xs text-yellow-300">
               You don't have permission to create expenses. Only ADMIN, MANAGER, and ENGINEER can create.
             </p>
           </div>
@@ -1080,93 +1005,157 @@ export default function Expenses() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-4 border-navy-600 border-t-blue-500"></div>
           </div>
         ) : (
-          <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
+          <div className="bg-navy-900 rounded-xl border border-navy-700/50 overflow-hidden">
+            {/* Compact Filters */}
+            <div className="p-4 border-b border-navy-700/50">
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative flex-1 min-w-[160px] max-w-[200px]">
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm placeholder-slate-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <select
+                  value={selectedResort}
+                  onChange={(e) => setSelectedResort(e.target.value)}
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="all">All Resorts</option>
+                  {resorts.map(resort => (
+                    <option key={resort.id} value={resort.id}>{resort.name}</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="all">All Categories</option>
+                  <option value="OPERATIONAL">Operational</option>
+                  <option value="FUEL">Fuel</option>
+                  <option value="MARKETING">Marketing</option>
+                  <option value="SPAREPART">Sparepart</option>
+                  <option value="SALARY">Salary</option>
+                  <option value="BUSINESS_TRAVEL">Business Travel</option>
+                  <option value="SERVICE">Service</option>
+                  <option value="TOOLS">Tools</option>
+                  <option value="BANK_INSTALLMENT">Bank Installment</option>
+                  <option value="UTILITY">Utility</option>
+                  <option value="TAX">Tax</option>
+                  <option value="BPJS">BPJS</option>
+                  <option value="ASSET">Asset</option>
+                  <option value="ZAKAT">Zakat</option>
+                  <option value="OTHER">Other</option>
+                </select>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as 'all' | ApprovalStatus)}
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="all">All Status</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="REJECTED">Rejected</option>
+                </select>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
+                />
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="px-3 py-1.5 bg-navy-800 border border-navy-600/50 rounded-lg text-white text-sm focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-purple-500/20">
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Date</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Description</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Category</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Resort</th>
-                    <th className="text-right py-3 px-4 text-white/90 font-semibold">Amount</th>
-                    <th className="text-left py-3 px-4 text-white/90 font-semibold">Submitted By</th>
-                    <th className="text-center py-3 px-4 text-white/90 font-semibold">Status</th>
-                    <th className="text-center py-3 px-4 text-white/90 font-semibold">Actions</th>
+                  <tr className="border-b border-navy-700/50 bg-navy-800/50">
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Date</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Description</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Category</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Resort</th>
+                    <th className="text-right py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">Amount</th>
+                    <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Submitted</th>
+                    <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Status</th>
+                    <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredExpenses.map((expense) => (
-                    <tr key={expense.id} className="border-b border-purple-500/10 hover:bg-purple-500/10 transition-colors">
-                      <td className="py-3 px-4 text-white">
-                        {new Date(expense.date).toLocaleDateString('id-ID', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
+                    <tr key={expense.id} className="hover:bg-navy-800/50 transition-colors">
+                      <td className="py-2.5 px-3 text-slate-300 text-xs whitespace-nowrap">
+                        {new Date(expense.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="text-white font-medium">{expense.description}</div>
+                      <td className="py-2.5 px-3">
+                        <div className="text-white text-xs font-medium max-w-[200px] truncate">{expense.description}</div>
                         {expense.supplier && (
-                          <span className="text-xs text-green-400">📦 Supplier: {expense.supplier}</span>
+                          <span className="text-[10px] text-emerald-400">Supplier: {expense.supplier}</span>
                         )}
                       </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(expense.category)}`}>
-                          {expense.category}
+                      <td className="py-2.5 px-3">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium text-white ${getCategoryColor(expense.category)}`}>
+                          {expense.category.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-white/70">
+                      <td className="py-2.5 px-3 text-slate-400 text-xs max-w-[100px] truncate">
                         {expense.resort?.name || '-'}
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="text-white font-bold">
-                          Rp {expense.amount.toLocaleString('id-ID')}
-                        </span>
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        <span className="text-white font-semibold text-xs">Rp{'\u00A0'}{expense.amount.toLocaleString('id-ID')}</span>
                       </td>
-                      <td className="py-3 px-4 text-white/70">
+                      <td className="py-2.5 px-3 text-slate-400 text-xs">
                         {(expense as any).submitter?.name || '-'}
                         {expense.submitted_by === user?.id && (
-                          <span className="ml-2 text-xs text-blue-400">(You)</span>
+                          <span className="ml-1 text-blue-400">(You)</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(expense.status)}`}>
+                      <td className="py-2.5 px-3 text-center">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide ${getStatusColor(expense.status)}`}>
                           {expense.status}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          {/* Edit button - owner can edit PENDING, Manager can edit any PENDING */}
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center justify-center gap-1">
                           {canEditExpense(expense) && (
                             <button
                               onClick={() => handleEditExpense(expense)}
-                              className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
-                              title="Edit Expense"
+                              className="w-7 h-7 flex items-center justify-center bg-blue-600/20 text-blue-400 rounded hover:bg-blue-600/40 transition-colors"
+                              title="Edit"
                             >
-                              Edit
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             </button>
                           )}
-                          {/* Review button - Manager only for PENDING */}
                           {canApprove && expense.status === 'PENDING' && (
                             <button
                               onClick={() => handleApprovalAction(expense)}
-                              className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium"
+                              className="w-7 h-7 flex items-center justify-center bg-green-600/20 text-green-400 rounded hover:bg-green-600/40 transition-colors"
+                              title="Review"
                             >
-                              Review
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                             </button>
                           )}
-                          {/* Delete button - Manager only */}
                           {canDelete && (
                             <button
                               onClick={() => handleDeleteExpense(expense)}
-                              className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-xs font-medium"
-                              title="Delete Expense"
+                              className="w-7 h-7 flex items-center justify-center bg-red-600/20 text-red-400 rounded hover:bg-red-600/40 transition-colors"
+                              title="Delete"
                             >
-                              Delete
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           )}
                         </div>
@@ -1175,10 +1164,10 @@ export default function Expenses() {
                   ))}
                   {filteredExpenses.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-white/50">
+                      <td colSpan={8} className="py-12 text-center text-slate-500 text-sm">
                         {isFilterActive 
                           ? 'No expenses match your filters' 
-                          : 'No expenses available'}
+                          : 'No expenses yet'}
                       </td>
                     </tr>
                   )}
@@ -1191,7 +1180,7 @@ export default function Expenses() {
         {/* Add Expense Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30 max-h-[90vh] overflow-y-auto">
+            <div className="bg-navy-900 rounded-2xl p-8 max-w-md w-full border border-navy-600/50 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-white mb-6">Add New Expense</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -1204,7 +1193,7 @@ export default function Expenses() {
                     onChange={(e) =>
                       setFormData({ ...formData, category: e.target.value as ExpenseCategory })
                     }
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
                   >
                     <option value="OPERATIONAL" className="bg-slate-800 text-white">Operational</option>
                     <option value="SPAREPART" className="bg-slate-800 text-white">Spare Part</option>
@@ -1236,7 +1225,7 @@ export default function Expenses() {
                     value={formData.resort_id}
                     onChange={(e) => setFormData({ ...formData, resort_id: e.target.value })}
                     required={isSparepart || isTool}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
                   >
                     <option value="" className="bg-slate-800 text-white">-- General / Not Resort Specific --</option>
                     {resorts.map((resort) => (
@@ -1245,7 +1234,7 @@ export default function Expenses() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-white/70 mt-1">
+                  <p className="text-xs text-slate-400 mt-1">
                     {isSparepart 
                       ? 'Required: Select resort for sparepart inventory' 
                       : isTool
@@ -1265,7 +1254,7 @@ export default function Expenses() {
                       required
                       value={formData.supplier}
                       onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                      className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400 placeholder-slate-500"
                       placeholder="Enter supplier name"
                     />
                   </div>
@@ -1273,7 +1262,7 @@ export default function Expenses() {
                 
                 {/* Sparepart Items - Only for SPAREPART category */}
                 {isSparepart && (
-                  <div className="border border-purple-500/30 rounded-lg p-4 bg-purple-900/20">
+                  <div className="border border-navy-600/50 rounded-lg p-4 bg-navy-900">
                     <div className="flex justify-between items-center mb-3">
                       <label className="block text-sm font-medium text-white">
                         Sparepart Items *
@@ -1289,9 +1278,9 @@ export default function Expenses() {
                     
                     <div className="space-y-3">
                       {sparepartItems.map((item, index) => (
-                        <div key={item.id} className="bg-purple-800/30 rounded-lg p-3">
+                        <div key={item.id} className="bg-navy-800 rounded-lg p-3">
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs text-white/70">Item #{index + 1}</span>
+                            <span className="text-xs text-slate-400">Item #{index + 1}</span>
                             {sparepartItems.length > 1 && (
                               <button
                                 type="button"
@@ -1309,12 +1298,12 @@ export default function Expenses() {
                                 placeholder="Sparepart Name"
                                 value={item.sparepart_name}
                                 onChange={(e) => updateSparepartItem(item.id, 'sparepart_name', e.target.value)}
-                                className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm placeholder-slate-500"
                               />
                               <select
                                 value={item.asset_category}
                                 onChange={(e) => updateSparepartItem(item.id, 'asset_category', e.target.value)}
-                                className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                                className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
                               >
                                 <option value="" className="bg-slate-800">-- Asset Category --</option>
                                 {ASSET_CATEGORIES.map((cat) => (
@@ -1324,22 +1313,22 @@ export default function Expenses() {
                             </div>
                             <div className="grid grid-cols-4 gap-2">
                               <div>
-                                <label className="text-xs text-white/70">Qty</label>
+                                <label className="text-xs text-slate-400">Qty</label>
                                 <input
                                   type="number"
                                   min="1"
                                   placeholder="Qty"
                                   value={item.quantity}
                                   onChange={(e) => updateSparepartItem(item.id, 'quantity', parseInt(e.target.value) || 0)}
-                                  className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                                  className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-white/70">Unit</label>
+                                <label className="text-xs text-slate-400">Unit</label>
                                 <select
                                   value={item.unit}
                                   onChange={(e) => updateSparepartItem(item.id, 'unit', e.target.value)}
-                                  className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                                  className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
                                 >
                                   <option value="pcs" className="bg-slate-800">pcs</option>
                                   <option value="liter" className="bg-slate-800">liter</option>
@@ -1349,18 +1338,18 @@ export default function Expenses() {
                                 </select>
                               </div>
                               <div>
-                                <label className="text-xs text-white/70">Unit Price</label>
+                                <label className="text-xs text-slate-400">Unit Price</label>
                                 <input
                                   type="number"
                                   min="0"
                                   placeholder="Price"
                                   value={item.unit_price}
                                   onChange={(e) => updateSparepartItem(item.id, 'unit_price', parseFloat(e.target.value) || 0)}
-                                  className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                                  className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
                                 />
                               </div>
                               <div>
-                                <label className="text-xs text-white/70">Total</label>
+                                <label className="text-xs text-slate-400">Total</label>
                                 <div className="px-3 py-2 bg-white/5 border border-white/10 text-white rounded-lg text-sm">
                                   Rp {item.total_price.toLocaleString('id-ID')}
                                 </div>
@@ -1372,7 +1361,7 @@ export default function Expenses() {
                     </div>
                     
                     {/* Total Amount Display */}
-                    <div className="mt-4 pt-3 border-t border-purple-500/30">
+                    <div className="mt-4 pt-3 border-t border-navy-600/50">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-white">Total Amount:</span>
                         <span className="text-lg font-bold text-green-400">
@@ -1385,30 +1374,30 @@ export default function Expenses() {
 
                 {/* Tool Details - Only for TOOLS category */}
                 {isTool && (
-                  <div className="border border-purple-500/30 rounded-lg p-4 bg-purple-900/20 space-y-3">
+                  <div className="border border-navy-600/50 rounded-lg p-4 bg-navy-900 space-y-3">
                     <label className="block text-sm font-medium text-white mb-3">
                       Tool Details *
                     </label>
                     
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs text-white/70 mb-1">Tool Name *</label>
+                        <label className="block text-xs text-slate-400 mb-1">Tool Name *</label>
                         <input
                           type="text"
                           required
                           placeholder="e.g., Impact Wrench"
                           value={toolItem.tool_name}
                           onChange={(e) => setToolItem({ ...toolItem, tool_name: e.target.value })}
-                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                          className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm placeholder-slate-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-white/70 mb-1">Category *</label>
+                        <label className="block text-xs text-slate-400 mb-1">Category *</label>
                         <select
                           required
                           value={toolItem.category}
                           onChange={(e) => setToolItem({ ...toolItem, category: e.target.value as ToolCategory })}
-                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                          className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
                         >
                           {TOOL_CATEGORIES.map((cat) => (
                             <option key={cat} value={cat} className="bg-slate-800">{cat}</option>
@@ -1419,45 +1408,45 @@ export default function Expenses() {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs text-white/70 mb-1">Brand</label>
+                        <label className="block text-xs text-slate-400 mb-1">Brand</label>
                         <input
                           type="text"
                           placeholder="e.g., Makita"
                           value={toolItem.brand}
                           onChange={(e) => setToolItem({ ...toolItem, brand: e.target.value })}
-                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                          className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm placeholder-slate-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-white/70 mb-1">Model</label>
+                        <label className="block text-xs text-slate-400 mb-1">Model</label>
                         <input
                           type="text"
                           placeholder="e.g., DTW285Z"
                           value={toolItem.model}
                           onChange={(e) => setToolItem({ ...toolItem, model: e.target.value })}
-                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                          className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm placeholder-slate-500"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs text-white/70 mb-1">Serial Number</label>
+                        <label className="block text-xs text-slate-400 mb-1">Serial Number</label>
                         <input
                           type="text"
                           placeholder="e.g., SN123456"
                           value={toolItem.serial_number}
                           onChange={(e) => setToolItem({ ...toolItem, serial_number: e.target.value })}
-                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                          className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm placeholder-slate-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-white/70 mb-1">Condition *</label>
+                        <label className="block text-xs text-slate-400 mb-1">Condition *</label>
                         <select
                           required
                           value={toolItem.condition}
                           onChange={(e) => setToolItem({ ...toolItem, condition: e.target.value as ToolCondition })}
-                          className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                          className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
                         >
                           <option value="good" className="bg-slate-800">Good</option>
                           <option value="fair" className="bg-slate-800">Fair</option>
@@ -1469,34 +1458,34 @@ export default function Expenses() {
                     </div>
 
                     <div>
-                      <label className="block text-xs text-white/70 mb-1">Warranty Until</label>
+                      <label className="block text-xs text-slate-400 mb-1">Warranty Until</label>
                       <input
                         type="date"
                         value={toolItem.warranty_until}
                         onChange={(e) => setToolItem({ ...toolItem, warranty_until: e.target.value })}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm"
+                        className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs text-white/70 mb-1">Supplier</label>
+                      <label className="block text-xs text-slate-400 mb-1">Supplier</label>
                       <input
                         type="text"
                         placeholder="e.g., PT Tool Indonesia"
                         value={formData.supplier}
                         onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                        className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm placeholder-slate-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs text-white/70 mb-1">Notes</label>
+                      <label className="block text-xs text-slate-400 mb-1">Notes</label>
                       <textarea
                         rows={2}
                         placeholder="Additional notes about this tool..."
                         value={toolItem.notes}
                         onChange={(e) => setToolItem({ ...toolItem, notes: e.target.value })}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 text-white rounded-lg text-sm placeholder-white/50"
+                        className="w-full px-3 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg text-sm placeholder-slate-500"
                       />
                     </div>
                   </div>
@@ -1511,7 +1500,7 @@ export default function Expenses() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={3}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400 placeholder-slate-500"
                     placeholder="Enter expense description"
                   />
                 </div>
@@ -1527,7 +1516,7 @@ export default function Expenses() {
                       required
                       value={formData.amount}
                       onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                      className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400 placeholder-slate-500"
                       placeholder={isTool ? "Enter purchase price" : "Enter amount"}
                     />
                   </div>
@@ -1539,20 +1528,20 @@ export default function Expenses() {
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
                   />
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
+                    className="flex-1 px-4 py-2 bg-navy-800 text-white rounded-lg hover:bg-navy-700 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-colors font-semibold"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
                   >
                     Submit
                   </button>
@@ -1615,7 +1604,7 @@ export default function Expenses() {
                   onChange={(e) => setApprovalComments(e.target.value)}
                   rows={3}
                   placeholder="Add your comments here..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
@@ -1653,7 +1642,7 @@ export default function Expenses() {
         {/* Edit Expense Modal */}
         {showEditModal && editingExpense && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gradient-to-br from-purple-900 to-slate-900 rounded-2xl p-8 max-w-md w-full border border-purple-500/30 max-h-[90vh] overflow-y-auto">
+            <div className="bg-navy-900 rounded-2xl p-8 max-w-md w-full border border-navy-600/50 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold text-white mb-6">Edit Expense</h2>
               <form onSubmit={handleUpdateExpense} className="space-y-4">
                 <div>
@@ -1666,7 +1655,7 @@ export default function Expenses() {
                     onChange={(e) =>
                       setFormData({ ...formData, category: e.target.value as ExpenseCategory })
                     }
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
                   >
                     <option value="OPERATIONAL" className="bg-slate-800 text-white">Operational</option>
                     <option value="SPAREPART" className="bg-slate-800 text-white">Spare Part</option>
@@ -1693,7 +1682,7 @@ export default function Expenses() {
                   <select
                     value={formData.resort_id}
                     onChange={(e) => setFormData({ ...formData, resort_id: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
                   >
                     <option value="" className="bg-slate-800 text-white">-- General / Not Resort Specific --</option>
                     {resorts.map((resort) => (
@@ -1713,7 +1702,7 @@ export default function Expenses() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={3}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400 placeholder-slate-500"
                     placeholder="Enter expense description"
                   />
                 </div>
@@ -1725,7 +1714,7 @@ export default function Expenses() {
                     required
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400 placeholder-white/50"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400 placeholder-slate-500"
                     placeholder="Enter amount"
                   />
                 </div>
@@ -1737,7 +1726,7 @@ export default function Expenses() {
                     required
                     value={formData.date}
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-purple-400"
+                    className="w-full px-4 py-2 bg-navy-800 border border-navy-600/50 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-400"
                   />
                 </div>
 
@@ -1756,13 +1745,13 @@ export default function Expenses() {
                         supplier: '',
                       });
                     }}
-                    className="flex-1 px-4 py-2 bg-purple-800/50 text-white rounded-lg hover:bg-purple-800/70 transition-colors"
+                    className="flex-1 px-4 py-2 bg-navy-800 text-white rounded-lg hover:bg-navy-700 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors font-semibold"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
                   >
                     Update
                   </button>

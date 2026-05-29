@@ -6,7 +6,7 @@ import Layout from '../components/Layout';
 import AreaChart from '../components/charts/AreaChart';
 import LineChart from '../components/charts/LineChart';
 import { fetchProfitConfigs, processRevenueWithProfitSharing } from '../lib/profitSharing';
-import { getMonthYearLabel } from '../lib/utils';
+import { getMonthYearLabel, formatDateToString } from '../lib/utils';
 
 interface ResortPerformance {
   resort_id: string;
@@ -37,6 +37,7 @@ export default function ResortAnalytics() {
   const [resorts, setResorts] = useState<ResortPerformance[]>([]);
   const [selectedResortId, setSelectedResortId] = useState<string>('');
   const [monthlyData, setMonthlyData] = useState<MonthlyResortData[]>([]);
+  const [allResortMonthlyData, setAllResortMonthlyData] = useState<{ [resortId: string]: MonthlyResortData[] }>({});
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<'current' | '6m' | '12m' | 'all'>('current');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
@@ -84,15 +85,8 @@ export default function ResortAnalytics() {
         monthsBack = Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
       }
 
-      const formatDate = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
-
-      const startDateStr = formatDate(startDate);
-      const endDateStr = formatDate(endDate);
+      const startDateStr = formatDateToString(startDate);
+      const endDateStr = formatDateToString(endDate);
 
       // Fetch all resorts
       const { data: resortsData } = await supabase
@@ -295,7 +289,7 @@ export default function ResortAnalytics() {
       }
 
       // Store all resort monthly data in state
-      (window as any).resortMonthlyData = resortMonthlyData;
+      setAllResortMonthlyData(resortMonthlyData);
     } catch (error) {
       console.error('Error fetching resort analytics:', error);
     } finally {
@@ -310,7 +304,7 @@ export default function ResortAnalytics() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500/30 border-t-neon-purple"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-navy-600/50 border-t-blue-500"></div>
         </div>
       </Layout>
     );
@@ -324,14 +318,14 @@ export default function ResortAnalytics() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-5xl font-bold text-white mb-3 tracking-tight">Dashboard Analytics</h1>
-              <p className="text-xl text-white/70">Welcome back, <span className="text-purple-400 font-semibold">{profile?.name?.toUpperCase() || 'USER'}</span></p>
+              <p className="text-xl text-slate-400">Welcome back, <span className="text-blue-400 font-semibold">{profile?.name?.toUpperCase() || 'USER'}</span></p>
             </div>
             
             {/* Period Selection */}
             <div className="flex items-center gap-4">
               {/* Resort Analytics Button */}
               <button
-                className="px-8 py-4 bg-gradient-to-br from-pink-600 to-purple-600 text-white rounded-2xl shadow-2xl hover:shadow-pink-500/50 transition-all font-bold text-lg"
+                className="px-8 py-4 bg-blue-600 text-white rounded-2xl shadow-2xl hover:shadow-pink-500/50 transition-all font-bold text-lg"
               >
                 📊 Resort Analytics
               </button>
@@ -343,7 +337,7 @@ export default function ResortAnalytics() {
                   setSelectedMonth(e.target.value);
                   setSelectedPeriod('current');
                 }}
-                className="px-6 py-4 bg-purple-900/40 border-2 border-purple-500/40 rounded-2xl text-white text-lg font-semibold hover:bg-purple-900/60 transition-all focus:ring-4 focus:ring-purple-500/50 focus:border-purple-400"
+                className="px-6 py-4 bg-navy-900/40 border-2 border-navy-600/40 rounded-2xl text-white text-lg font-semibold hover:bg-navy-900/60 transition-all focus:ring-4 focus:ring-blue-500/50 focus:border-blue-400"
               >
                 <option value="">Current Month</option>
                 {availableMonths.map(month => (
@@ -360,8 +354,8 @@ export default function ResortAnalytics() {
                   }}
                   className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all ${
                     selectedPeriod === '6m'
-                      ? 'bg-purple-600 text-white shadow-2xl shadow-purple-500/50 scale-105'
-                      : 'bg-purple-900/30 text-white/70 hover:bg-purple-900/50 hover:scale-105'
+                      ? 'bg-blue-600 text-white shadow-2xl shadow-blue-500/30 scale-105'
+                      : 'bg-navy-900 text-slate-400 hover:bg-navy-900 hover:scale-105'
                   }`}
                 >
                   6<br/>Months
@@ -373,8 +367,8 @@ export default function ResortAnalytics() {
                   }}
                   className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all ${
                     selectedPeriod === '12m'
-                      ? 'bg-purple-600 text-white shadow-2xl shadow-purple-500/50 scale-105'
-                      : 'bg-purple-900/30 text-white/70 hover:bg-purple-900/50 hover:scale-105'
+                      ? 'bg-blue-600 text-white shadow-2xl shadow-blue-500/30 scale-105'
+                      : 'bg-navy-900 text-slate-400 hover:bg-navy-900 hover:scale-105'
                   }`}
                 >
                   12<br/>Months
@@ -386,8 +380,8 @@ export default function ResortAnalytics() {
                   }}
                   className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all ${
                     selectedPeriod === 'all'
-                      ? 'bg-purple-600 text-white shadow-2xl shadow-purple-500/50 scale-105'
-                      : 'bg-purple-900/30 text-white/70 hover:bg-purple-900/50 hover:scale-105'
+                      ? 'bg-blue-600 text-white shadow-2xl shadow-blue-500/30 scale-105'
+                      : 'bg-navy-900 text-slate-400 hover:bg-navy-900 hover:scale-105'
                   }`}
                 >
                   All<br/>Time
@@ -397,12 +391,12 @@ export default function ResortAnalytics() {
           </div>
 
           {/* Resort Selector */}
-          <div className="flex items-center gap-6 bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30">
+          <div className="flex items-center gap-6 bg-navy-900 rounded-2xl p-6 border border-navy-600/50">
             <label className="text-white font-bold text-xl">Select Resort:</label>
             <select
               value={selectedResortId}
               onChange={(e) => setSelectedResortId(e.target.value)}
-              className="flex-1 max-w-md px-6 py-3 bg-purple-900/40 border-2 border-purple-500/40 rounded-xl text-white text-lg font-semibold hover:bg-purple-900/60 transition-all focus:ring-4 focus:ring-purple-500/50 focus:border-purple-400"
+              className="flex-1 max-w-md px-6 py-3 bg-navy-900/40 border-2 border-navy-600/40 rounded-xl text-white text-lg font-semibold hover:bg-navy-900/60 transition-all focus:ring-4 focus:ring-blue-500/50 focus:border-blue-400"
             >
               <option value="">-- All Resorts --</option>
               {resorts.map(resort => (
@@ -418,7 +412,7 @@ export default function ResortAnalytics() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {resorts.map((resort) => {
             // Get monthly data for this resort
-            const resortMonthly = (window as any).resortMonthlyData?.[resort.resort_id] || [];
+            const resortMonthly = allResortMonthlyData[resort.resort_id] || [];
             
             // Shorten resort name for display
             const displayName = resort.resort_name.toUpperCase().includes('WATERFRONT HARRIS') 
@@ -426,11 +420,11 @@ export default function ResortAnalytics() {
               : resort.resort_name;
 
             return (
-              <div key={resort.resort_id} className="bg-gradient-to-br from-purple-900/50 to-slate-900/50 backdrop-blur-xl rounded-3xl p-8 border-2 border-purple-500/30 hover:border-purple-500/60 transition-all shadow-2xl hover:shadow-purple-500/20">
+              <div key={resort.resort_id} className="bg-navy-900 rounded-3xl p-8 border-2 border-navy-600/50 hover:border-navy-600/60 transition-all shadow-2xl hover:shadow-blue-500/10">
                 {/* Resort Header */}
-                <div className="mb-8 pb-6 border-b border-purple-500/30">
+                <div className="mb-8 pb-6 border-b border-navy-600/50">
                   <h2 className="text-4xl font-bold text-white mb-2 tracking-tight">{displayName}</h2>
-                  <p className="text-white/60 text-lg">Performance Overview</p>
+                  <p className="text-slate-400 text-lg">Performance Overview</p>
                 </div>
 
                 {/* Key Metrics Cards */}
@@ -445,15 +439,15 @@ export default function ResortAnalytics() {
                       </div>
                     </div>
                     <p className="text-5xl font-bold text-white mb-2">{resort.total_assets}</p>
-                    <p className="text-sm text-white/70 font-medium mb-3">Total Assets</p>
+                    <p className="text-sm text-slate-400 font-medium mb-3">Total Assets</p>
                     <div className="flex items-center text-sm gap-3 mb-3">
                       <span className="text-green-400 font-bold">{resort.active_assets} Active</span>
-                      <span className="text-white/40">•</span>
+                      <span className="text-slate-500">•</span>
                       <span className="text-orange-400 font-bold">{resort.maintenance_assets} Maintenance</span>
                     </div>
                     <div className="mt-4">
                       <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-white/80 font-medium">Utilization</span>
+                        <span className="text-slate-300 font-medium">Utilization</span>
                         <span className="text-blue-300 font-bold text-lg">{resort.utilization_rate.toFixed(0)}%</span>
                       </div>
                       <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
@@ -466,18 +460,18 @@ export default function ResortAnalytics() {
                   </div>
 
                   {/* DKU Share */}
-                  <div className="bg-gradient-to-br from-purple-600/30 to-purple-800/30 backdrop-blur-sm rounded-2xl p-6 border-2 border-purple-500/40 hover:border-purple-400/60 transition-all shadow-xl">
+                  <div className="bg-navy-800 rounded-2xl p-6 border-2 border-navy-600/40 hover:border-blue-400/60 transition-all shadow-xl">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="p-3 bg-purple-500/30 rounded-xl">
-                        <svg className="w-8 h-8 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="p-3 bg-blue-500/30 rounded-xl">
+                        <svg className="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       </div>
                     </div>
                     <p className="text-3xl font-bold text-white mb-2">Rp {Math.round(resort.dku_share).toLocaleString('id-ID')}</p>
-                    <p className="text-sm text-white/70 font-medium mb-3">DKU Share</p>
-                    <div className="mt-4 pt-3 border-t border-purple-400/30">
-                      <p className="text-sm text-purple-200 font-medium">
+                    <p className="text-sm text-slate-400 font-medium mb-3">DKU Share</p>
+                    <div className="mt-4 pt-3 border-t border-blue-400/30">
+                      <p className="text-sm text-slate-300 font-medium">
                         Total Revenue: <span className="text-white font-bold">Rp {Math.round(resort.total_revenue).toLocaleString('id-ID')}</span>
                       </p>
                     </div>
@@ -493,7 +487,7 @@ export default function ResortAnalytics() {
                       </div>
                     </div>
                     <p className="text-3xl font-bold text-white mb-2">Rp {Math.round(resort.total_expenses).toLocaleString('id-ID')}</p>
-                    <p className="text-sm text-white/70 font-medium mb-3">Total Expenses</p>
+                    <p className="text-sm text-slate-400 font-medium mb-3">Total Expenses</p>
                     <div className="mt-4 pt-3 border-t border-orange-400/30">
                       <p className="text-sm text-orange-200 font-medium">
                         Approved only • <span className="text-yellow-300 font-bold">{resort.pending_expenses} pending</span>
@@ -511,7 +505,7 @@ export default function ResortAnalytics() {
                       </div>
                     </div>
                     <p className="text-3xl font-bold text-white mb-2">Rp {Math.round(resort.net_profit).toLocaleString('id-ID')}</p>
-                    <p className="text-sm text-white/70 font-medium mb-3">Net Profit</p>
+                    <p className="text-sm text-slate-400 font-medium mb-3">Net Profit</p>
                     <div className="mt-4 pt-3 border-t border-pink-400/30">
                       <p className={`text-sm font-bold text-lg ${resort.profit_margin >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                         Margin: {resort.profit_margin.toFixed(1)}%
@@ -523,7 +517,7 @@ export default function ResortAnalytics() {
                 {/* Charts - Always show for each resort */}
                 {resortMonthly.length > 0 && (
                   <div className="space-y-6 mt-8">
-                    <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30">
+                    <div className="bg-navy-900 rounded-2xl p-6 border border-navy-600/50">
                       <AreaChart
                         data={resortMonthly.map((m: any) => ({ name: m.month, dkuShare: m.dkuShare, expenses: m.expenses }))}
                         title="Monthly DKU Share vs Expenses"
@@ -534,7 +528,7 @@ export default function ResortAnalytics() {
                       />
                     </div>
 
-                    <div className="bg-purple-900/20 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/30">
+                    <div className="bg-navy-900 rounded-2xl p-6 border border-navy-600/50">
                       <LineChart
                         data={resortMonthly.map((m: any) => ({ name: m.month, value: m.profit }))}
                         title="Monthly Profit Trend"
