@@ -253,6 +253,23 @@ export default function Assets() {
     }
   };
 
+  // Filtered assets based on user filters - used by both summary cards and table
+  const filteredAssets = assets.filter((asset) => {
+    const name = asset.name || '';
+    const serialNumber = asset.serial_number || '';
+    const category = asset.category || '';
+    const resortName = (asset as any).resorts?.name || '';
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = name.toLowerCase().includes(search) ||
+                        serialNumber.toLowerCase().includes(search) ||
+                        category.toLowerCase().includes(search) ||
+                        resortName.toLowerCase().includes(search);
+    const matchesResort = selectedResort === 'all' || asset.resort_id === selectedResort;
+    const matchesStatus = selectedStatus === 'all' || asset.status === selectedStatus;
+    const matchesCategory = selectedCategory === 'all' || asset.category === selectedCategory;
+    return matchesSearch && matchesResort && matchesStatus && matchesCategory;
+  });
+
   return (
     <Layout>
       <div className="space-y-4">
@@ -298,19 +315,19 @@ export default function Assets() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
             <div className="text-xs text-slate-400 font-medium uppercase tracking-wider">Total</div>
-            <div className="text-2xl font-bold text-white mt-1">{assets.length}</div>
+            <div className="text-2xl font-bold text-white mt-1">{filteredAssets.length}</div>
           </div>
           <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
             <div className="text-xs text-green-400 font-medium uppercase tracking-wider">Active</div>
-            <div className="text-2xl font-bold text-white mt-1">{assets.filter(a => a.status === 'ACTIVE').length}</div>
+            <div className="text-2xl font-bold text-white mt-1">{filteredAssets.filter(a => a.status === 'ACTIVE').length}</div>
           </div>
           <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
             <div className="text-xs text-amber-400 font-medium uppercase tracking-wider">Maintenance</div>
-            <div className="text-2xl font-bold text-white mt-1">{assets.filter(a => a.status === 'MAINTENANCE').length}</div>
+            <div className="text-2xl font-bold text-white mt-1">{filteredAssets.filter(a => a.status === 'MAINTENANCE').length}</div>
           </div>
           <div className="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
-            <div className="text-xs text-red-400 font-medium uppercase tracking-wider">Retired</div>
-            <div className="text-2xl font-bold text-white mt-1">{assets.filter(a => a.status === 'RETIRED').length}</div>
+            <div className="text-xs text-emerald-400 font-medium uppercase tracking-wider">Total Value</div>
+            <div className="text-lg font-bold text-white mt-1 whitespace-nowrap">Rp{'\u00A0'}{filteredAssets.reduce((sum, a) => sum + (a.purchase_cost || 0), 0).toLocaleString('id-ID')}</div>
           </div>
         </div>
 
@@ -384,22 +401,7 @@ export default function Assets() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy-700/30">
-                  {assets
-                    .filter((asset) => {
-                      const name = asset.name || '';
-                      const serialNumber = asset.serial_number || '';
-                      const category = asset.category || '';
-                      const resortName = (asset as any).resorts?.name || '';
-                      const search = searchTerm.toLowerCase();
-                      const matchesSearch = name.toLowerCase().includes(search) ||
-                                          serialNumber.toLowerCase().includes(search) ||
-                                          category.toLowerCase().includes(search) ||
-                                          resortName.toLowerCase().includes(search);
-                      const matchesResort = selectedResort === 'all' || asset.resort_id === selectedResort;
-                      const matchesStatus = selectedStatus === 'all' || asset.status === selectedStatus;
-                      const matchesCategory = selectedCategory === 'all' || asset.category === selectedCategory;
-                      return matchesSearch && matchesResort && matchesStatus && matchesCategory;
-                    })
+                  {filteredAssets
                     .map((asset) => (
                       <tr 
                         key={asset.id} 
@@ -456,21 +458,7 @@ export default function Assets() {
                         )}
                       </tr>
                     ))}
-                  {assets.filter((asset) => {
-                    const name = asset.name || '';
-                    const serialNumber = asset.serial_number || '';
-                    const category = asset.category || '';
-                    const resortName = (asset as any).resorts?.name || '';
-                    const search = searchTerm.toLowerCase();
-                    const matchesSearch = name.toLowerCase().includes(search) ||
-                                        serialNumber.toLowerCase().includes(search) ||
-                                        category.toLowerCase().includes(search) ||
-                                        resortName.toLowerCase().includes(search);
-                    const matchesResort = selectedResort === 'all' || asset.resort_id === selectedResort;
-                    const matchesStatus = selectedStatus === 'all' || asset.status === selectedStatus;
-                    const matchesCategory = selectedCategory === 'all' || asset.category === selectedCategory;
-                    return matchesSearch && matchesResort && matchesStatus && matchesCategory;
-                  }).length === 0 && (
+                  {filteredAssets.length === 0 && (
                     <tr>
                       <td colSpan={canCreate ? 7 : 6} className="py-12 text-center text-slate-500 text-sm">
                         {searchTerm || selectedResort !== 'all' || selectedStatus !== 'all' || selectedCategory !== 'all'
