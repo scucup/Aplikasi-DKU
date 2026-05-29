@@ -99,11 +99,11 @@ export default function Spareparts() {
     return matchesSearch && matchesCategory && matchesResort;
   });
 
-  // Calculate statistics
-  const totalItems = inventory.length;
-  const outOfStock = inventory.filter((i) => i.current_stock === 0).length;
-  const lowStock = inventory.filter((i) => i.current_stock > 0 && i.current_stock <= 5).length;
-  const totalValue = inventory.reduce((sum, i) => sum + i.current_stock * i.last_unit_price, 0);
+  // Calculate statistics based on filtered data
+  const totalItems = filteredInventory.length;
+  const outOfStock = filteredInventory.filter((i) => i.current_stock === 0).length;
+  const lowStock = filteredInventory.filter((i) => i.current_stock > 0 && i.current_stock <= 5).length;
+  const totalValue = filteredInventory.reduce((sum, i) => sum + i.current_stock * i.last_unit_price, 0);
 
   // Handle Edit
   const handleEdit = (item: InventoryItem) => {
