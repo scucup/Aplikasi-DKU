@@ -33,7 +33,7 @@ export default function Assets() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
-  const canCreate = profile?.role === 'MANAGER' || profile?.role === 'ENGINEER';
+  const canCreate = profile?.role === 'MANAGER' || profile?.role === 'ADMIN' || profile?.role === 'ENGINEER';
   const [formData, setFormData] = useState({
     name: '',
     category: 'ATV' as AssetCategory,
