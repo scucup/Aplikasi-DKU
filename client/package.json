@@ -20,6 +20,7 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.1",
     "recharts": "^3.5.1",
+    "xlsx-js-style": "^1.2.0",
     "zustand": "^4.4.7"
   },
   "devDependencies": {

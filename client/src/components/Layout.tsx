@@ -51,6 +51,8 @@ export default function Layout({ children }: LayoutProps) {
         { name: 'Maintenance', path: '/maintenance', icon: 'maintenance' },
         { name: 'Spareparts', path: '/spareparts', icon: 'sparepart' },
         { name: 'Tools', path: '/tools', icon: 'tool' },
+        { name: 'Master Data', path: '/master-data', icon: 'database' },
+        { name: 'Users', path: '/user-management', icon: 'users' },
         { name: 'Notifications', path: '/notifications', icon: 'notification' },
       ];
     }
@@ -206,6 +208,18 @@ export default function Layout({ children }: LayoutProps) {
         return (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
+          </svg>
+        );
+      case 'database':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+          </svg>
+        );
+      case 'users':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
           </svg>
         );
       case 'notification':

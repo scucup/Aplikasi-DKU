@@ -12,6 +12,7 @@ interface UserProfile {
   email: string;
   name: string;
   role: 'ENGINEER' | 'ADMIN' | 'MANAGER';
+  status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
   created_at: string;
   updated_at: string;
 }
@@ -40,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, name, role')
+        .select('id, email, name, role, status')
         .eq('id', userId)
         .single();
 
@@ -116,7 +117,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
 
     if (data.user) {
-      await fetchProfile(data.user.id);
+      // Check user status before allowing access
+      const { data: userData, error: profileError } = await supabase
+        .from('users')
+        .select('id, email, name, role, status')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      if (userData?.status === 'PENDING') {
+        await supabase.auth.signOut();
+        setUser(null);
+        setProfile(null);
+        setSession(null);
+        throw new Error('Akun Anda belum disetujui oleh Manager. Silakan tunggu approval.');
+      }
+
+      if (userData?.status === 'SUSPENDED') {
+        await supabase.auth.signOut();
+        setUser(null);
+        setProfile(null);
+        setSession(null);
+        throw new Error('Akun Anda telah dinonaktifkan. Hubungi Manager untuk informasi lebih lanjut.');
+      }
+
+      setProfile(userData);
     }
   };
 

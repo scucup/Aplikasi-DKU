@@ -15,6 +15,8 @@ import Settings from './pages/Settings';
 import ResortAnalytics from './pages/ResortAnalytics';
 import Tools from './pages/Tools';
 import ToolDetail from './pages/ToolDetail';
+import MasterDataManager from './pages/MasterDataManager';
+import UserManagement from './pages/UserManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -131,6 +133,22 @@ function App() {
         element={
           <ProtectedRoute>
             <ToolDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/master-data"
+        element={
+          <ProtectedRoute requiredRole="MANAGER">
+            <MasterDataManager />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/user-management"
+        element={
+          <ProtectedRoute requiredRole="MANAGER">
+            <UserManagement />
           </ProtectedRoute>
         }
       />

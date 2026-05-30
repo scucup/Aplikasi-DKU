@@ -14,6 +14,7 @@ export default function Register() {
   const [role, setRole] = useState<'ENGINEER' | 'ADMIN' | 'MANAGER'>('ENGINEER');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   
   const { signUp } = useAuth();
   const navigate = useNavigate();
@@ -35,7 +36,8 @@ export default function Register() {
 
     try {
       await signUp(email, password, name, role);
-      navigate('/dashboard');
+      // Sign out immediately since user needs approval
+      setSuccess(true);
     } catch (err: any) {
       console.error('Registration error:', err);
       
@@ -71,6 +73,23 @@ export default function Register() {
         </div>
         
         <form className="mt-8 space-y-6 bg-navy-900 p-8 rounded-xl border border-navy-700/50" onSubmit={handleSubmit}>
+          {success && (
+            <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-4">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-green-400">Pendaftaran Berhasil!</p>
+                  <p className="text-xs text-green-400/80 mt-1">Akun Anda telah dibuat dan sedang menunggu persetujuan dari Manager. Anda akan dapat login setelah akun disetujui.</p>
+                  <Link to="/login" className="inline-block mt-3 text-xs font-medium text-blue-400 hover:text-blue-300 underline">
+                    Kembali ke halaman Login
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-4">
               <p className="text-sm text-red-400">{error}</p>
