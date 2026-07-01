@@ -66,6 +66,7 @@ export default function ResortAnalytics() {
       if (selectedPeriod === 'current' && !selectedMonth) {
         // Current month only
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         monthsBack = 1;
       } else if (selectedPeriod === 'current' && selectedMonth) {
         // Specific month selected
@@ -73,15 +74,26 @@ export default function ResortAnalytics() {
         startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
         endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
         monthsBack = 1;
+      } else if ((selectedPeriod === '6m' || selectedPeriod === '12m') && selectedMonth) {
+        // Period selected WITH a specific starting month - calculate forward from that month
+        const [year, month] = selectedMonth.split('-').map(Number);
+        monthsBack = selectedPeriod === '6m' ? 6 : 12;
+        startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+        endDate = new Date(Date.UTC(year, month - 1 + monthsBack, 0, 23, 59, 59, 999));
       } else if (selectedPeriod === '6m') {
+        // 6 months back from current month (no specific month selected)
         monthsBack = 6;
         startDate = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1);
+        endDate = now;
       } else if (selectedPeriod === '12m') {
+        // 12 months back from current month (no specific month selected)
         monthsBack = 12;
         startDate = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1);
+        endDate = now;
       } else {
         // All time
         startDate = new Date(2020, 0, 1);
+        endDate = now;
         monthsBack = Math.ceil((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
       }
 
@@ -137,15 +149,36 @@ export default function ResortAnalytics() {
       });
 
       // Fetch ALL expenses with pagination - SAME AS EXPENSES PAGE
-      const { data: allExpensesData } = await supabase
-        .from('expenses')
-        .select('resort_id, amount, status, date, category');
+      let allExpensesData: any[] = [];
+      let expFrom = 0;
+      let expHasMore = true;
+
+      while (expHasMore) {
+        const { data: expPageData, error: expPageError } = await supabase
+          .from('expenses')
+          .select('resort_id, amount, status, date, category')
+          .order('date', { ascending: false })
+          .range(expFrom, expFrom + pageSize - 1);
+
+        if (expPageError) {
+          console.error('Error fetching expenses data:', expPageError);
+          throw expPageError;
+        }
+
+        if (expPageData && expPageData.length > 0) {
+          allExpensesData = [...allExpensesData, ...expPageData];
+          expFrom += pageSize;
+          expHasMore = expPageData.length === pageSize;
+        } else {
+          expHasMore = false;
+        }
+      }
 
       // Filter expenses by date range - SAME AS EXPENSES PAGE
-      const filteredExpenses = allExpensesData?.filter(expense => {
+      const filteredExpenses = allExpensesData.filter(expense => {
         const expenseDate = new Date(expense.date);
         return expenseDate >= startDate && expenseDate <= endDate;
-      }) || [];
+      });
 
       // Fetch assets
       const { data: assetsData } = await supabase
@@ -231,7 +264,7 @@ export default function ResortAnalytics() {
           const dateParts = record.date.split('-');
           const recordDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
           const monthKey = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
-          monthlyDku[monthKey] = (monthlyDku[monthKey] || 0) + (record.dkuShare || 0);
+          monthlyDku[monthKey] = (monthlyDku[monthKey] || 0) + (record.dku_share || 0);
         });
 
         resortExpenses.forEach(expense => {
@@ -256,7 +289,15 @@ export default function ResortAnalytics() {
               return new Date(year, month - 1, 1);
             })
             .sort((a, b) => a.getTime() - b.getTime());
+        } else if (selectedMonth && (selectedPeriod === '6m' || selectedPeriod === '12m')) {
+          // Period with specific starting month - calculate forward from startDate
+          const [year, month] = selectedMonth.split('-').map(Number);
+          for (let i = 0; i < monthsBack; i++) {
+            const date = new Date(year, month - 1 + i, 1);
+            monthsToDisplay.push(date);
+          }
         } else {
+          // Default: from current month backwards
           for (let i = 0; i < monthsBack; i++) {
             const date = new Date(now.getFullYear(), now.getMonth() - monthsBack + i + 1, 1);
             monthsToDisplay.push(date);
@@ -350,7 +391,6 @@ export default function ResortAnalytics() {
                 <button
                   onClick={() => {
                     setSelectedPeriod(selectedPeriod === '6m' ? 'current' : '6m');
-                    setSelectedMonth('');
                   }}
                   className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all ${
                     selectedPeriod === '6m'
@@ -363,7 +403,6 @@ export default function ResortAnalytics() {
                 <button
                   onClick={() => {
                     setSelectedPeriod(selectedPeriod === '12m' ? 'current' : '12m');
-                    setSelectedMonth('');
                   }}
                   className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all ${
                     selectedPeriod === '12m'
@@ -376,7 +415,6 @@ export default function ResortAnalytics() {
                 <button
                   onClick={() => {
                     setSelectedPeriod(selectedPeriod === 'all' ? 'current' : 'all');
-                    setSelectedMonth('');
                   }}
                   className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all ${
                     selectedPeriod === 'all'
